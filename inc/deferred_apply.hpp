@@ -159,13 +159,15 @@ struct deferred_apply {
 		virtual void my_apply_func( void )     = 0;
 	};
 
-	template <class... Args>
+	template <class F, class... Args>
 	struct deferred_apply_carrier : public deferred_apply_carrier_base {
+		F                                                           f_;
 		std::tuple<typename get_argument_store_type<Args>::type...> values_;
 
-		template <class... XArgs>
-		deferred_apply_carrier( XArgs&&... args )
-		  : values_( std::forward<XArgs>( args )... )
+		template <class XF, class... XArgs>
+		deferred_apply_carrier( XF&& f, XArgs&&... args )
+		  : f_( std::forward<XF>( f ) )
+		  , values_( std::forward<XArgs>( args )... )
 		{
 			printf( "values_: %s\n", demangle( typeid( values_ ).name() ) );
 			printf( "XArgs: %s\n", demangle( typeid( std::tuple<XArgs...> ).name() ) );
@@ -188,7 +190,8 @@ struct deferred_apply {
 			using cur_apply_tuple_t = std::tuple<typename get_argument_apply_type<typename get_argument_store_type<Args>::type>::type...>;
 			cur_apply_tuple_t apply_values( get_argument_apply_value<Is>( values_ )... );
 			printf( "apply_values: %s\n", demangle( typeid( cur_apply_tuple_t ).name() ) );
-			printf( std::get<Is>( apply_values )... );
+			// printf( std::get<Is>( apply_values )... );
+			f_( std::get<Is>( apply_values )... );
 		}
 	};
 
@@ -197,47 +200,56 @@ public:
 	deferred_apply( deferred_apply&& orig )      = delete;
 
 #if __cpp_if_constexpr >= 201606
-	template <class... Args>
-	deferred_apply( Args&&... args )
+	template <class F, class... Args>
+	deferred_apply( F&& f, Args&&... args )
 	  : up_args_( nullptr )
 	  , p_args_( nullptr )
 	{
-		using cur_deferred_apply_t = deferred_apply_carrier<Args...>;
+		using cur_deferred_apply_t = deferred_apply_carrier<F, Args...>;
 		printf( "cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
 
 		if constexpr ( buff_size < sizeof( cur_deferred_apply_t ) ) {   // 本来は、C++17から導入されたif constexpr構文を使用するのがあるべき姿
 #if __cpp_lib_make_unique >= 201304
-			up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<Args>( args )... );
+			up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<F>( f ), std::forward<Args>( args )... );
 #else
-			up_args_ = std::unique_ptr<cur_deferred_apply_t>( new cur_deferred_apply_t( std::forward<Args>( args )... ) );
+			up_args_ = std::unique_ptr<cur_deferred_apply_t>( new cur_deferred_apply_t( std::forward<F>( f ), std::forward<Args>( args )... ) );
 #endif
 			p_args_ = up_args_.get();
 		} else {
-			p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<Args>( args )... );
+			p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<F>( f ), std::forward<Args>( args )... );
 		}
 	}
 #else
-	template <class... Args, typename std::enable_if<buff_size<sizeof( deferred_apply_carrier<Args...> )>::type* = nullptr> deferred_apply( Args&&... args ) : up_args_( nullptr ), p_args_( nullptr )
-	{
-		using cur_deferred_apply_t = deferred_apply_carrier<Args...>;
-		printf( "#1:cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
 
-#if __cpp_lib_make_unique >= 201304
-		up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<Args>( args )... );
-#else
-		up_args_ = std::unique_ptr<cur_deferred_apply_t>( new cur_deferred_apply_t( std::forward<Args>( args )... ) );
-#endif
-		p_args_  = up_args_.get();
-	}
-	template <class... Args, typename std::enable_if<buff_size >= sizeof( deferred_apply_carrier<Args...> )>::type* = nullptr>
-	deferred_apply( Args&&... args )
+	template <class F,
+	          class... Args,
+	          typename std::enable_if<( buff_size < sizeof( deferred_apply_carrier<Args...> ) )>::type* = nullptr>
+	deferred_apply( F&& f, Args&&... args )
 	  : up_args_( nullptr )
 	  , p_args_( nullptr )
 	{
-		using cur_deferred_apply_t = deferred_apply_carrier<Args...>;
+		using cur_deferred_apply_t = deferred_apply_carrier<F, Args...>;
+		printf( "#1:cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
+
+#if __cpp_lib_make_unique >= 201304
+		up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<F>( f ), std::forward<Args>( args )... );
+#else
+		up_args_ = std::unique_ptr<cur_deferred_apply_t>( new cur_deferred_apply_t( std::forward<F>( f ), std::forward<Args>( args )... ) );
+#endif
+		p_args_  = up_args_.get();
+	}
+
+	template <class F,
+	          class... Args,
+	          typename std::enable_if<( buff_size >= sizeof( deferred_apply_carrier<Args...> ) )>::type* = nullptr>
+	deferred_apply( F&& f, Args&&... args )
+	  : up_args_( nullptr )
+	  , p_args_( nullptr )
+	{
+		using cur_deferred_apply_t = deferred_apply_carrier<F, Args...>;
 		printf( "#2:cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
 
-		p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<Args>( args )... );
+		p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<F>( f ), std::forward<Args>( args )... );
 	}
 #endif
 
