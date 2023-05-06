@@ -1,9 +1,14 @@
 
 
-all: test/deferred_apply_test.out
+all: test/deferred_apply_test_c++11.out test/deferred_apply_test.out
 
 test: all
 	test/deferred_apply_test.out
+	echo
+	test/deferred_apply_test_c++11.out
 
 test/deferred_apply_test.out : test/deferred_apply_test.cpp inc/deferred_apply.hpp
 	g++ -o test/deferred_apply_test.out -Iinc test/deferred_apply_test.cpp
+
+test/deferred_apply_test_c++11.out : test/deferred_apply_test.cpp inc/deferred_apply.hpp
+	g++ -std=c++11 -o test/deferred_apply_test_c++11.out -Iinc test/deferred_apply_test.cpp
