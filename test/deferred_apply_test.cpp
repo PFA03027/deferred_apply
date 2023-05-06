@@ -56,7 +56,7 @@ void deferred_printf(Args &&...args)
 {
     std::cout << "Top: deferred_printf" << std::endl;
 
-    argument_storage x(std::forward<Args>(args)...);
+    deferred_apply x(std::forward<Args>(args)...);
     std::cout << "XXX: stored arguments" << std::endl;
     x.apply();
 
@@ -71,11 +71,11 @@ int main(void)
     // int   test_int = 1;
     testA aa{};
 
-    // auto x1 = argument_storage( "a\n" );
-    // auto x2 = argument_storage( "b, %d, %s\n", test_int, "c" );
-    // auto x3 = argument_storage( "d, %d, %s, %s\n", 1, "e", testA {} );
-    // auto x4 = argument_storage( "f, %d, %s, %s\n", 1, "g", aa );
-    // auto x5 = argument_storage( "h, %d, %s, %s, %s\n", 1, aa, testA {}, "i" );
+    // auto x1 = deferred_apply( "a\n" );
+    // auto x2 = deferred_apply( "b, %d, %s\n", test_int, "c" );
+    // auto x3 = deferred_apply( "d, %d, %s, %s\n", 1, "e", testA {} );
+    // auto x4 = deferred_apply( "f, %d, %s, %s\n", 1, "g", aa );
+    // auto x5 = deferred_apply( "h, %d, %s, %s, %s\n", 1, aa, testA {}, "i" );
 
     // x1.print();
     // x2.print();
