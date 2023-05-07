@@ -55,7 +55,7 @@ void deferred_printf( Args&&... args )
 {
 	std::cout << "Top: deferred_printf" << std::endl;
 
-	deferred_apply x( printf, std::forward<Args>( args )... );
+	auto x = deferred_apply( printf, std::forward<Args>( args )... );
 	std::cout << "XXX: stored arguments" << std::endl;
 	x.apply();
 

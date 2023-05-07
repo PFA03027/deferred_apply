@@ -81,7 +81,7 @@ struct is_callable_c_str : decltype( is_callable_c_str_impl::check<typename std:
  * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。
  *
  */
-struct deferred_apply {
+class deferred_apply {
 	constexpr static size_t buff_size = 256;
 
 	////////////////////////////////////////////////////////////////////////////////////////////
@@ -155,8 +155,11 @@ struct deferred_apply {
 	////////////////////////////////////////////////////////////////////////////////////////////
 	class deferred_apply_carrier_base {
 	public:
-		virtual ~deferred_apply_carrier_base() = default;
-		virtual void my_apply_func( void )     = 0;
+		virtual ~deferred_apply_carrier_base()                                               = default;
+		virtual void                                         my_apply_func( void )           = 0;
+		virtual deferred_apply_carrier_base*                 placement_new_copy( void* ptr ) = 0;
+		virtual deferred_apply_carrier_base*                 placement_new_move( void* ptr ) = 0;
+		virtual std::unique_ptr<deferred_apply_carrier_base> make_clone( void )              = 0;
 	};
 
 	template <class F, class... Args>
@@ -164,13 +167,48 @@ struct deferred_apply {
 		F                                                           f_;
 		std::tuple<typename get_argument_store_type<Args>::type...> values_;
 
-		template <class XF, class... XArgs>
+		template <class XF, class... XArgs, typename std::enable_if<!std::is_same<typename std::remove_reference<XF>::type, deferred_apply_carrier>::value>::type* = nullptr>
 		deferred_apply_carrier( XF&& f, XArgs&&... args )
 		  : f_( std::forward<XF>( f ) )
 		  , values_( std::forward<XArgs>( args )... )
 		{
-			printf( "values_: %s\n", demangle( typeid( values_ ).name() ) );
-			printf( "XArgs: %s\n", demangle( typeid( std::tuple<XArgs...> ).name() ) );
+			printf( "Called constructor of deferred_apply_carrier\n" );
+			printf( "\tvalues_: %s\n", demangle( typeid( values_ ).name() ) );
+			printf( "\tXArgs: %s\n", demangle( typeid( std::tuple<XArgs...> ).name() ) );
+		}
+		deferred_apply_carrier( const deferred_apply_carrier& orig )
+		  : f_( orig.f_ )
+		  , values_( orig.values_ )
+		{
+			printf( "Called copy-constructor of deferred_apply_carrier\n" );
+		}
+		deferred_apply_carrier( deferred_apply_carrier&& orig )
+		  : f_( std::move( orig.f_ ) )
+		  , values_( std::move( orig.values_ ) )
+		{
+			printf( "Called move-constructor of deferred_apply_carrier\n" );
+		}
+
+		~deferred_apply_carrier()
+		{
+			printf( "Called destructor of deferred_apply_carrier\n" );
+		}
+
+		deferred_apply_carrier_base* placement_new_copy( void* ptr ) override
+		{
+			return new ( ptr ) deferred_apply_carrier( *this );
+		}
+		deferred_apply_carrier_base* placement_new_move( void* ptr ) override
+		{
+			return new ( ptr ) deferred_apply_carrier( std::move( *this ) );
+		}
+		std::unique_ptr<deferred_apply_carrier_base> make_clone( void ) override
+		{
+#if __cpp_lib_make_unique >= 201304
+			return std::make_unique<deferred_apply_carrier>( *this );
+#else
+			return std::unique_ptr<deferred_apply_carrier_base>( new deferred_apply_carrier( std::move( *this ) ) );
+#endif
 		}
 
 		void my_apply_func( void ) override
@@ -196,11 +234,41 @@ struct deferred_apply {
 	};
 
 public:
-	deferred_apply( const deferred_apply& orig ) = delete;
-	deferred_apply( deferred_apply&& orig )      = delete;
+	deferred_apply( const deferred_apply& orig )
+	  : up_args_( nullptr )
+	  , p_args_( nullptr )
+	{
+		if ( orig.up_args_ != nullptr ) {
+			up_args_ = orig.up_args_->make_clone();
+			p_args_  = up_args_.get();
+			return;
+		}
+		p_args_ = orig.p_args_->placement_new_copy( placement_new_buffer );
+	}
+	deferred_apply( deferred_apply&& orig )
+	  : up_args_( std::move( orig.up_args_ ) )
+	  , p_args_( nullptr )
+	{
+		if ( up_args_ != nullptr ) {
+			p_args_      = up_args_.get();
+			orig.p_args_ = nullptr;
+			return;
+		}
+
+		if ( orig.p_args_ == nullptr ) {
+			return;
+		}
+
+		p_args_ = orig.p_args_->placement_new_move( placement_new_buffer );
+		orig.p_args_->~deferred_apply_carrier_base();
+		orig.p_args_ = nullptr;
+	}
 
 #if __cpp_if_constexpr >= 201606
-	template <class F, class... Args>
+	template <class F,
+	          class... Args,
+	          typename std::enable_if<!std::is_same<F, deferred_apply>::value>::type* = nullptr>
+	//   typename std::enable_if<!std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
 	  : up_args_( nullptr )
 	  , p_args_( nullptr )
@@ -223,7 +291,7 @@ public:
 
 	template <class F,
 	          class... Args,
-	          typename std::enable_if<( buff_size < sizeof( deferred_apply_carrier<Args...> ) )>::type* = nullptr>
+	          typename std::enable_if<( !std::is_same<F, deferred_apply>::value ) && ( buff_size < sizeof( deferred_apply_carrier<Args...> ) )>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
 	  : up_args_( nullptr )
 	  , p_args_( nullptr )
@@ -241,7 +309,7 @@ public:
 
 	template <class F,
 	          class... Args,
-	          typename std::enable_if<( buff_size >= sizeof( deferred_apply_carrier<Args...> ) )>::type* = nullptr>
+	          typename std::enable_if<( !std::is_same<F, deferred_apply>::value ) && ( buff_size >= sizeof( deferred_apply_carrier<Args...> ) )>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
 	  : up_args_( nullptr )
 	  , p_args_( nullptr )
@@ -255,6 +323,10 @@ public:
 
 	~deferred_apply()
 	{
+		if ( up_args_ != nullptr ) return;
+		if ( p_args_ == nullptr ) return;
+
+		p_args_->~deferred_apply_carrier_base();
 	}
 
 	void apply( void )
