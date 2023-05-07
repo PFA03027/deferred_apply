@@ -91,6 +91,47 @@ void experiment_logger( bool output_flag, deferred_format&& df_str )
 	}
 }
 
+////////////////////////
+// テンプレートテンプレートを使った遅延適用の習作
+
+template <typename R,
+          template <typename XR, typename XTuple, size_t N> typename F,
+          typename... Args>
+class TTtest {
+public:
+	TTtest( Args&&... args )
+	  : args_tuple_( std::forward<Args>( args )... )
+	{
+	}
+
+	R apply( void )
+	{
+		return f_( args_tuple_ );
+	}
+
+private:
+	using tuple_args_t = std::tuple<Args...>;
+	tuple_args_t                          args_tuple_;
+	F<R, tuple_args_t, sizeof...( Args )> f_;
+};
+
+template <typename R, typename Tuple, size_t N>
+class dummy_printf {
+public:
+	R operator()( Tuple& arg_tuple )
+	{
+		return apply( arg_tuple, my_make_index_sequence<N>() );
+	}
+
+	template <size_t... Is>
+	R apply( Tuple& arg_tuple, my_index_sequence<Is...> )
+	{
+		return printf( std::get<Is>( arg_tuple )... );
+	}
+};
+
+////////////////////////
+
 int main( void )
 {
 	static_assert( is_callable_c_str<testA const&>::value );
@@ -106,6 +147,9 @@ int main( void )
 	// experiment_logger( false, deferred_format( "j, %d, %s, %s, %s\n", 1, aa, testA {}, "k" ) );
 	experiment_logger( false, deferred_format( "j, %d, %s\n", 1, "k" ) );
 	printf( "---------------------\n" );
+
+	auto xx = TTtest<int, dummy_printf, const char*, const char*>( "%s\n", "test" );
+	xx.apply();
 
 	return EXIT_SUCCESS;
 }
