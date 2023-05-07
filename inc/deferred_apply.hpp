@@ -73,6 +73,64 @@ struct is_callable_c_str_impl {
 template <typename T>
 struct is_callable_c_str : decltype( is_callable_c_str_impl::check<typename std::remove_reference<T>::type>( nullptr ) ) {};
 
+////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief 引数を保持するためのtuple用の型を求めるメタ関数の実装クラス
+ *
+ * Tがunion or クラスの場合で左辺値参照ならば、型Tのconst参照型を返す
+ * Tが配列型ならば、型Tの要素型のconstへのポインタ型を返す（decay+add_constを適用する）
+ * Tが上記以外なら（＝組込み型、enum型や、右辺値参照のクラス等）なら、型Tをそのまま返す。
+ */
+struct get_argument_store_type_impl {
+	// 左辺値参照で、かつクラスかunion型の場合に、const左辺値参照を型として返す。
+	template <typename T>
+	static auto check( T x ) -> typename std::enable_if<
+		std::is_lvalue_reference<T>::value &&
+			( std::is_class<typename std::remove_reference<T>::type>::value || std::is_union<typename std::remove_reference<T>::type>::value ),
+		typename std::add_lvalue_reference<typename std::add_const<typename std::remove_reference<T>::type>::type>::type>::type;
+
+	// 配列型は、関数テンプレートと同じ推測を適用してconstへのポインタ型変換して返す。
+	template <typename T>
+	static auto check( T x ) -> typename std::enable_if<
+		std::is_pointer<typename std::decay<T>::type>::value,
+		typename std::add_const<typename std::decay<T>::type>::type>::type;
+
+	// 上記以外は、そのまま型を返す
+	template <typename T>
+	static auto check( ... ) -> typename std::remove_reference<T>::type;
+};
+
+/**
+ * @brief 引数を保持するためのtuple用の型を求めるメタ関数
+ */
+template <typename T>
+struct get_argument_store_type {
+	using type = decltype( get_argument_store_type_impl::check<T>( std::declval<T>() ) );
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief タプルの要素を関数の引数に適用する際の型を求めるメタ関数の実装クラス
+ */
+struct get_argument_apply_type_impl {
+	// 左辺値参照で、かつクラスかunion型の場合に、const左辺値参照を型として返す。
+	template <typename T>
+	static auto check( T x ) -> typename std::enable_if<is_callable_c_str<T>::value, decltype( x.c_str() )>::type;
+
+	// 上記以外は、そのまま型を返す
+	template <typename T>
+	static auto check( ... ) -> typename std::remove_reference<T>::type;
+};
+
+/**
+ * @brief タプルの要素を関数の引数に適用する際の型を求めるメタ関数
+ */
+template <typename T>
+struct get_argument_apply_type {
+	using type = decltype( get_argument_apply_type_impl::check<T>( std::declval<T>() ) );
+};
+
+////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief 関数の実行を延期するために、一時的引数を保持することを目的としたクラス
  *
@@ -81,65 +139,9 @@ struct is_callable_c_str : decltype( is_callable_c_str_impl::check<typename std:
  * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。
  *
  */
+template <typename R>
 class deferred_apply {
 	constexpr static size_t buff_size = 256;
-
-	////////////////////////////////////////////////////////////////////////////////////////////
-	/**
-	 * @brief 引数を保持するためのtuple用の型を求めるメタ関数の実装クラス
-	 *
-	 * Tがunion or クラスの場合で左辺値参照ならば、型Tのconst参照型を返す
-	 * Tが配列型ならば、型Tの要素型のconstへのポインタ型を返す（decay+add_constを適用する）
-	 * Tが上記以外なら（＝組込み型、enum型や、右辺値参照のクラス等）なら、型Tをそのまま返す。
-	 */
-	struct get_argument_store_type_impl {
-		// 左辺値参照で、かつクラスかunion型の場合に、const左辺値参照を型として返す。
-		template <typename T>
-		static auto check( T x ) -> typename std::enable_if<
-			std::is_lvalue_reference<T>::value &&
-				( std::is_class<typename std::remove_reference<T>::type>::value || std::is_union<typename std::remove_reference<T>::type>::value ),
-			typename std::add_lvalue_reference<typename std::add_const<typename std::remove_reference<T>::type>::type>::type>::type;
-
-		// 配列型は、関数テンプレートと同じ推測を適用してconstへのポインタ型変換して返す。
-		template <typename T>
-		static auto check( T x ) -> typename std::enable_if<
-			std::is_pointer<typename std::decay<T>::type>::value,
-			typename std::add_const<typename std::decay<T>::type>::type>::type;
-
-		// 上記以外は、そのまま型を返す
-		template <typename T>
-		static auto check( ... ) -> typename std::remove_reference<T>::type;
-	};
-
-	/**
-	 * @brief 引数を保持するためのtuple用の型を求めるメタ関数
-	 */
-	template <typename T>
-	struct get_argument_store_type {
-		using type = decltype( get_argument_store_type_impl::check<T>( std::declval<T>() ) );
-	};
-
-	////////////////////////////////////////////////////////////////////////////////////////////
-	/**
-	 * @brief タプルの要素を関数の引数に適用する際の型を求めるメタ関数の実装クラス
-	 */
-	struct get_argument_apply_type_impl {
-		// 左辺値参照で、かつクラスかunion型の場合に、const左辺値参照を型として返す。
-		template <typename T>
-		static auto check( T x ) -> typename std::enable_if<is_callable_c_str<T>::value, decltype( x.c_str() )>::type;
-
-		// 上記以外は、そのまま型を返す
-		template <typename T>
-		static auto check( ... ) -> typename std::remove_reference<T>::type;
-	};
-
-	/**
-	 * @brief タプルの要素を関数の引数に適用する際の型を求めるメタ関数
-	 */
-	template <typename T>
-	struct get_argument_apply_type {
-		using type = decltype( get_argument_apply_type_impl::check<T>( std::declval<T>() ) );
-	};
 
 	template <size_t I, typename Tuple, typename std::enable_if<is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
 	static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ).c_str() )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
@@ -152,21 +154,20 @@ class deferred_apply {
 	{
 		return std::get<I>( t );
 	}
+
 	////////////////////////////////////////////////////////////////////////////////////////////
 	class deferred_apply_carrier_base {
 	public:
 		virtual ~deferred_apply_carrier_base()                                               = default;
-		virtual void                                         my_apply_func( void )           = 0;
 		virtual deferred_apply_carrier_base*                 placement_new_copy( void* ptr ) = 0;
 		virtual deferred_apply_carrier_base*                 placement_new_move( void* ptr ) = 0;
 		virtual std::unique_ptr<deferred_apply_carrier_base> make_clone( void )              = 0;
+		virtual R                                            apply_func( void )              = 0;
 	};
 
 	template <class F, class... Args>
-	struct deferred_apply_carrier : public deferred_apply_carrier_base {
-		F                                                           f_;
-		std::tuple<typename get_argument_store_type<Args>::type...> values_;
-
+	class deferred_apply_carrier : public deferred_apply_carrier_base {
+	public:
 		template <class XF, class... XArgs, typename std::enable_if<!std::is_same<typename std::remove_reference<XF>::type, deferred_apply_carrier>::value>::type* = nullptr>
 		deferred_apply_carrier( XF&& f, XArgs&&... args )
 		  : f_( std::forward<XF>( f ) )
@@ -211,14 +212,14 @@ class deferred_apply {
 #endif
 		}
 
-		void my_apply_func( void ) override
+		R apply_func( void ) override
 		{
-			my_apply_func_impl( my_make_index_sequence<sizeof...( Args )>() );
-			return;
+			return my_apply_func_impl( my_make_index_sequence<sizeof...( Args )>() );
 		}
 
+	private:
 		template <size_t... Is>
-		void my_apply_func_impl( my_index_sequence<Is...> )
+		R my_apply_func_impl( my_index_sequence<Is...> )
 		{
 			printf( "my_index_sequence: %s\n", demangle( typeid( my_index_sequence<Is...> ).name() ) );
 
@@ -229,8 +230,11 @@ class deferred_apply {
 			cur_apply_tuple_t apply_values( get_argument_apply_value<Is>( values_ )... );
 			printf( "apply_values: %s\n", demangle( typeid( cur_apply_tuple_t ).name() ) );
 			// printf( std::get<Is>( apply_values )... );
-			f_( std::get<Is>( apply_values )... );
+			return f_( std::get<Is>( apply_values )... );
 		}
+
+		F                                                           f_;
+		std::tuple<typename get_argument_store_type<Args>::type...> values_;
 	};
 
 public:
@@ -329,10 +333,9 @@ public:
 		p_args_->~deferred_apply_carrier_base();
 	}
 
-	void apply( void )
+	R apply( void )
 	{
-		p_args_->my_apply_func();
-		return;
+		return p_args_->apply_func();
 	}
 
 private:
@@ -340,5 +343,11 @@ private:
 	deferred_apply_carrier_base*                 p_args_;
 	char                                         placement_new_buffer[buff_size];
 };
+
+template <typename F, typename... Args, typename R = typename std::result_of<F( Args... )>::type>
+auto make_deferred_apply( F&& f, Args&&... args ) -> deferred_apply<R>
+{
+	return deferred_apply<R>( std::forward<F>( f ), std::forward<Args>( args )... );
+}
 
 #endif
