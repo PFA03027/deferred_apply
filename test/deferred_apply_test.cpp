@@ -101,8 +101,10 @@ int main( void )
 
 	printf( "---------------------\n" );
 	experiment_logger( true, deferred_format( "h, %d, %s, %s, %s\n", 1, aa, testA {}, "i" ) );
+	// experiment_logger( true, deferred_format( "h, %d, %s\n", 1, "i" ) );
 	printf( "---------------------\n" );
-	experiment_logger( false, deferred_format( "j, %d, %s, %s, %s\n", 1, aa, testA {}, "k" ) );
+	// experiment_logger( false, deferred_format( "j, %d, %s, %s, %s\n", 1, aa, testA {}, "k" ) );
+	experiment_logger( false, deferred_format( "j, %d, %s\n", 1, "k" ) );
 	printf( "---------------------\n" );
 
 	return EXIT_SUCCESS;

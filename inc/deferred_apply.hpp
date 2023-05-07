@@ -82,12 +82,12 @@ struct is_callable_c_str : decltype( is_callable_c_str_impl::check<typename std:
  * Tが上記以外なら（＝組込み型、enum型や、右辺値参照のクラス等）なら、型Tをそのまま返す。
  */
 struct get_argument_store_type_impl {
-	// 左辺値参照で、かつクラスかunion型の場合に、const左辺値参照を型として返す。
+	// 左辺値参照で、かつクラスかunion型の場合に、左辺値参照を型として返す。
 	template <typename T>
 	static auto check( T x ) -> typename std::enable_if<
 		std::is_lvalue_reference<T>::value &&
 			( std::is_class<typename std::remove_reference<T>::type>::value || std::is_union<typename std::remove_reference<T>::type>::value ),
-		typename std::add_lvalue_reference<typename std::add_const<typename std::remove_reference<T>::type>::type>::type>::type;
+		typename std::add_lvalue_reference<typename std::remove_reference<T>::type>::type>::type;
 
 	// 配列型は、関数テンプレートと同じ推測を適用してconstへのポインタ型変換して返す。
 	template <typename T>
@@ -130,6 +130,18 @@ struct get_argument_apply_type {
 	using type = decltype( get_argument_apply_type_impl::check<T>( std::declval<T>() ) );
 };
 
+template <size_t I, typename Tuple, typename std::enable_if<is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
+static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ).c_str() )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
+{
+	return std::get<I>( t ).c_str();
+}
+
+template <size_t I, typename Tuple, typename std::enable_if<!is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
+static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ) )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
+{
+	return std::get<I>( t );
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief 関数の実行を延期するために、一時的引数を保持することを目的としたクラス
@@ -142,18 +154,6 @@ struct get_argument_apply_type {
 template <typename R>
 class deferred_apply {
 	constexpr static size_t buff_size = 256;
-
-	template <size_t I, typename Tuple, typename std::enable_if<is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
-	static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ).c_str() )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
-	{
-		return std::get<I>( t ).c_str();
-	}
-
-	template <size_t I, typename Tuple, typename std::enable_if<!is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
-	static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ) )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
-	{
-		return std::get<I>( t );
-	}
 
 	////////////////////////////////////////////////////////////////////////////////////////////
 	class deferred_apply_carrier_base {
@@ -226,11 +226,15 @@ class deferred_apply {
 			// 保持している引数に対して、一定の処理を施し、その結果を適用したい関数に当てはめる。
 			// ポイントは、「適用したい関数に当てはめる」ことだけでなく、「保持している引数に対して、一定の処理を施し」も遅延させていること。
 			// ただ、「一定の処理」をテンプレート化する等の汎用化する方法がうまく浮かばない。。。
+#if 1
 			using cur_apply_tuple_t = std::tuple<typename get_argument_apply_type<typename get_argument_store_type<Args>::type>::type...>;
 			cur_apply_tuple_t apply_values( get_argument_apply_value<Is>( values_ )... );
 			printf( "apply_values: %s\n", demangle( typeid( cur_apply_tuple_t ).name() ) );
 			// printf( std::get<Is>( apply_values )... );
 			return f_( std::get<Is>( apply_values )... );
+#else
+			return f_( std::get<Is>( values_ )... );
+#endif
 		}
 
 		F                                                           f_;
