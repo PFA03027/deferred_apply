@@ -20,12 +20,14 @@
 #include <type_traits>
 #include <utility>
 
+#ifdef DEFERRED_APPLY_DEBUG
 /* デバッグ用デマングル関数 */
 inline char* demangle( const char* demangled )
 {
 	int status;
 	return abi::__cxa_demangle( demangled, 0, 0, &status );
 }
+#endif
 
 #if __cplusplus >= 201402L
 // C++14以上の場合は、標準のインデックスシーケンスを使用する
@@ -122,26 +124,34 @@ class deferred_apply {
 		  : values_( std::forward<XArgHead>( arghead ), std::forward<XArgs>( args )... )
 		  , f_()
 		{
+#ifdef DEFERRED_APPLY_DEBUG
 			printf( "Called constructor of deferred_apply_carrier\n" );
 			printf( "\tXArgHead: %s, XArgs: %s\n", demangle( typeid( XArgHead ).name() ), demangle( typeid( std::tuple<XArgs...> ).name() ) );
 			printf( "\tvalues_: %s\n", demangle( typeid( values_ ).name() ) );
+#endif
 		}
 		deferred_tt_apply_carrier( const deferred_tt_apply_carrier& orig )
 		  : values_( orig.values_ )
 		  , f_()
 		{
+#ifdef DEFERRED_APPLY_DEBUG
 			printf( "Called copy-constructor of deferred_tt_apply_carrier\n" );
+#endif
 		}
 		deferred_tt_apply_carrier( deferred_tt_apply_carrier&& orig )
 		  : values_( std::move( orig.values_ ) )
 		  , f_()
 		{
+#ifdef DEFERRED_APPLY_DEBUG
 			printf( "Called move-constructor of deferred_tt_apply_carrier\n" );
+#endif
 		}
 
 		~deferred_tt_apply_carrier()
 		{
+#ifdef DEFERRED_APPLY_DEBUG
 			printf( "Called destructor of deferred_tt_apply_carrier\n" );
+#endif
 		}
 
 		deferred_apply_carrier_base* placement_new_copy( void* ptr ) override
@@ -213,7 +223,9 @@ public:
 	  , p_args_( nullptr )
 	{
 		using cur_deferred_apply_t = deferred_tt_apply_carrier<ArgHead, Args...>;
+#ifdef DEFERRED_APPLY_DEBUG
 		printf( "cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
+#endif
 
 		if constexpr ( buff_size < sizeof( cur_deferred_apply_t ) ) {   // 本来は、C++17から導入されたif constexpr構文を使用するのがあるべき姿
 			up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<ArgHead>( arghead ), std::forward<Args>( args )... );
@@ -231,7 +243,9 @@ public:
 	  , p_args_( nullptr )
 	{
 		using cur_deferred_apply_t = deferred_tt_apply_carrier<ArgHead, Args...>;
+#ifdef DEFERRED_APPLY_DEBUG
 		printf( "cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
+#endif
 
 #if __cpp_lib_make_unique >= 201304
 		up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<ArgHead>( arghead ), std::forward<Args>( args )... );
@@ -249,7 +263,9 @@ public:
 	  , p_args_( nullptr )
 	{
 		using cur_deferred_apply_t = deferred_tt_apply_carrier<ArgHead, Args...>;
+#ifdef DEFERRED_APPLY_DEBUG
 		printf( "cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
+#endif
 
 		p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<ArgHead>( arghead ), std::forward<Args>( args )... );
 	}

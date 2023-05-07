@@ -148,8 +148,9 @@ class printf_with_convert {
 	{
 		using cur_apply_tuple_t = std::tuple<typename get_argument_apply_type<typename std::tuple_element<Is, Tuple>::type>::type...>;
 		cur_apply_tuple_t apply_values( get_argument_apply_value<Is>( arg_tuple )... );
+#ifdef DEFERRED_APPLY_DEBUG
 		printf( "apply_values: %s\n", demangle( typeid( cur_apply_tuple_t ).name() ) );
-		// printf( std::get<Is>( apply_values )... );
+#endif
 		return printf( std::get<Is>( apply_values )... );
 	}
 
