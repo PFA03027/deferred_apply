@@ -15,6 +15,56 @@
 
 #include "deferred_apply.hpp"
 
+/**
+ * @brief const char*を返すメンバ関数c_str()を呼び出せるかどうかを検査するメタ関数の実装
+ */
+struct is_callable_c_str_impl {
+	template <typename T>
+	static auto check( T* x ) -> decltype( std::declval<T>().c_str(), std::true_type() );
+
+	template <typename T>
+	static auto check( ... ) -> std::false_type;
+};
+
+/**
+ * @brief const char*を返すメンバ関数c_str()を呼び出せるかどうかを検査するメタ関数
+ */
+template <typename T>
+struct is_callable_c_str : decltype( is_callable_c_str_impl::check<typename std::remove_reference<T>::type>( nullptr ) ) {};
+////////////////////////////////////////////////////////////////////////////////////////////
+/**
+ * @brief タプルの要素を関数の引数に適用する際の型を求めるメタ関数の実装クラス
+ */
+struct get_argument_apply_type_impl {
+	// 左辺値参照で、かつクラスかunion型の場合に、const左辺値参照を型として返す。
+	template <typename T>
+	static auto check( T x ) -> typename std::enable_if<is_callable_c_str<T>::value, decltype( x.c_str() )>::type;
+
+	// 上記以外は、そのまま型を返す
+	template <typename T>
+	static auto check( ... ) -> typename std::remove_reference<T>::type;
+};
+
+/**
+ * @brief タプルの要素を関数の引数に適用する際の型を求めるメタ関数
+ */
+template <typename T>
+struct get_argument_apply_type {
+	using type = decltype( get_argument_apply_type_impl::check<T>( std::declval<T>() ) );
+};
+
+template <size_t I, typename Tuple, typename std::enable_if<is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
+static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ).c_str() )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
+{
+	return std::get<I>( t ).c_str();
+}
+
+template <size_t I, typename Tuple, typename std::enable_if<!is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
+static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ) )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
+{
+	return std::get<I>( t );
+}
+
 class testA {
 public:
 	testA( void )
@@ -49,47 +99,6 @@ public:
 		return "ThisIsTestA";
 	}
 };
-
-template <class... Args>
-void deferred_printf( Args&&... args )
-{
-	std::cout << "Top: deferred_printf" << std::endl;
-
-	auto x = make_deferred_apply( printf, std::forward<Args>( args )... );
-	std::cout << "XXX: stored arguments" << std::endl;
-	x.apply();
-
-	std::cout << "End: deferred_printf" << std::endl;
-	return;
-}
-
-class deferred_format {
-public:
-	template <class... Args>
-	deferred_format( const char* p_fmt_arg, Args&&... args )
-	  : deferred_func_( snprintf, buff_, 2000 - 1, p_fmt_arg, std::forward<Args>( args )... )
-	{
-	}
-
-	const char* c_str( void )
-	{
-		deferred_func_.apply();
-		return buff_;
-	}
-
-private:
-	deferred_apply<int> deferred_func_;
-	char                buff_[2000];
-};
-
-void experiment_logger( bool output_flag, deferred_format&& df_str )
-{
-	if ( output_flag ) {
-		printf( "%s", df_str.c_str() );
-	} else {
-		printf( "NO OUTPUT LOG\n" );
-	}
-}
 
 ////////////////////////
 // テンプレートテンプレートを使った遅延適用の習作
@@ -132,24 +141,36 @@ public:
 
 ////////////////////////
 
+template <typename Tuple, size_t N>
+class printf_with_convert {
+	template <size_t... Is>
+	auto apply( Tuple& arg_tuple, my_index_sequence<Is...> ) -> int
+	{
+		using cur_apply_tuple_t = std::tuple<typename get_argument_apply_type<typename std::tuple_element<Is, Tuple>::type>::type...>;
+		cur_apply_tuple_t apply_values( get_argument_apply_value<Is>( arg_tuple )... );
+		printf( "apply_values: %s\n", demangle( typeid( cur_apply_tuple_t ).name() ) );
+		// printf( std::get<Is>( apply_values )... );
+		return printf( std::get<Is>( apply_values )... );
+	}
+
+public:
+	auto operator()( Tuple& arg_tuple ) -> decltype( apply( arg_tuple, my_make_index_sequence<N>() ) )
+	{
+		return apply( arg_tuple, my_make_index_sequence<N>() );
+	}
+};
+
 int main( void )
 {
 	static_assert( is_callable_c_str<testA const&>::value );
 
 	testA aa {};
 
-	// deferred_printf( "a, %d, %s, %s, %s\n", 1, aa, testA {}, "b" );
-
-	printf( "---------------------\n" );
-	experiment_logger( true, deferred_format( "h, %d, %s, %s, %s\n", 1, aa, testA {}, "i" ) );
-	// experiment_logger( true, deferred_format( "h, %d, %s\n", 1, "i" ) );
-	printf( "---------------------\n" );
-	// experiment_logger( false, deferred_format( "j, %d, %s, %s, %s\n", 1, aa, testA {}, "k" ) );
-	experiment_logger( false, deferred_format( "j, %d, %s\n", 1, "k" ) );
-	printf( "---------------------\n" );
-
 	auto xx = TTtest<int, dummy_printf, const char*, const char*>( "%s\n", "test" );
 	xx.apply();
+
+	auto xx2 = deferred_apply<int, printf_with_convert>( "l, %d, %s, %s, %s\n", 1, aa, testA {}, "m" );
+	xx2.apply();
 
 	return EXIT_SUCCESS;
 }

@@ -56,23 +56,6 @@ using my_make_index_sequence = decltype( internal::S<N> {}.f() );
 
 #endif
 
-/**
- * @brief const char*を返すメンバ関数c_str()を呼び出せるかどうかを検査するメタ関数の実装
- */
-struct is_callable_c_str_impl {
-	template <typename T>
-	static auto check( T* x ) -> decltype( std::declval<T>().c_str(), std::true_type() );
-
-	template <typename T>
-	static auto check( ... ) -> std::false_type;
-};
-
-/**
- * @brief const char*を返すメンバ関数c_str()を呼び出せるかどうかを検査するメタ関数
- */
-template <typename T>
-struct is_callable_c_str : decltype( is_callable_c_str_impl::check<typename std::remove_reference<T>::type>( nullptr ) ) {};
-
 ////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief 引数を保持するためのtuple用の型を求めるメタ関数の実装クラス
@@ -110,40 +93,6 @@ struct get_argument_store_type {
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 /**
- * @brief タプルの要素を関数の引数に適用する際の型を求めるメタ関数の実装クラス
- */
-struct get_argument_apply_type_impl {
-	// 左辺値参照で、かつクラスかunion型の場合に、const左辺値参照を型として返す。
-	template <typename T>
-	static auto check( T x ) -> typename std::enable_if<is_callable_c_str<T>::value, decltype( x.c_str() )>::type;
-
-	// 上記以外は、そのまま型を返す
-	template <typename T>
-	static auto check( ... ) -> typename std::remove_reference<T>::type;
-};
-
-/**
- * @brief タプルの要素を関数の引数に適用する際の型を求めるメタ関数
- */
-template <typename T>
-struct get_argument_apply_type {
-	using type = decltype( get_argument_apply_type_impl::check<T>( std::declval<T>() ) );
-};
-
-template <size_t I, typename Tuple, typename std::enable_if<is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
-static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ).c_str() )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
-{
-	return std::get<I>( t ).c_str();
-}
-
-template <size_t I, typename Tuple, typename std::enable_if<!is_callable_c_str<typename std::tuple_element<I, typename std::remove_reference<Tuple>::type>::type>::value>::type* = nullptr>
-static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ) )   // C++11でもコンパイルできるようにする。C++14なら、戻り値推論+decltype(auto)を使うのが良い
-{
-	return std::get<I>( t );
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////
-/**
  * @brief 関数の実行を延期するために、一時的引数を保持することを目的としたクラス
  *
  * 一時的な保持を目的としているため、左辺値参照されたクラスは参照を保持する方式をとることで、コピーしない。
@@ -151,7 +100,7 @@ static auto get_argument_apply_value( Tuple& t ) -> decltype( std::get<I>( t ) )
  * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。
  *
  */
-template <typename R>
+template <typename R, template <typename XTuple, size_t N> typename F>
 class deferred_apply {
 	constexpr static size_t buff_size = 256;
 
@@ -165,80 +114,63 @@ class deferred_apply {
 		virtual R                                            apply_func( void )              = 0;
 	};
 
-	template <class F, class... Args>
-	class deferred_apply_carrier : public deferred_apply_carrier_base {
+	template <class... Args>
+	class deferred_tt_apply_carrier : public deferred_apply_carrier_base {
 	public:
-		template <class XF, class... XArgs, typename std::enable_if<!std::is_same<typename std::remove_reference<XF>::type, deferred_apply_carrier>::value>::type* = nullptr>
-		deferred_apply_carrier( XF&& f, XArgs&&... args )
-		  : f_( std::forward<XF>( f ) )
-		  , values_( std::forward<XArgs>( args )... )
+		template <class XArgHead, class... XArgs, typename std::enable_if<!std::is_same<typename std::remove_reference<XArgHead>::type, deferred_tt_apply_carrier>::value>::type* = nullptr>
+		deferred_tt_apply_carrier( XArgHead&& arghead, XArgs&&... args )
+		  : values_( std::forward<XArgHead>( arghead ), std::forward<XArgs>( args )... )
+		  , f_()
 		{
 			printf( "Called constructor of deferred_apply_carrier\n" );
+			printf( "\tXArgHead: %s, XArgs: %s\n", demangle( typeid( XArgHead ).name() ), demangle( typeid( std::tuple<XArgs...> ).name() ) );
 			printf( "\tvalues_: %s\n", demangle( typeid( values_ ).name() ) );
-			printf( "\tXArgs: %s\n", demangle( typeid( std::tuple<XArgs...> ).name() ) );
 		}
-		deferred_apply_carrier( const deferred_apply_carrier& orig )
-		  : f_( orig.f_ )
-		  , values_( orig.values_ )
+		deferred_tt_apply_carrier( const deferred_tt_apply_carrier& orig )
+		  : values_( orig.values_ )
+		  , f_()
 		{
-			printf( "Called copy-constructor of deferred_apply_carrier\n" );
+			printf( "Called copy-constructor of deferred_tt_apply_carrier\n" );
 		}
-		deferred_apply_carrier( deferred_apply_carrier&& orig )
-		  : f_( std::move( orig.f_ ) )
-		  , values_( std::move( orig.values_ ) )
+		deferred_tt_apply_carrier( deferred_tt_apply_carrier&& orig )
+		  : values_( std::move( orig.values_ ) )
+		  , f_()
 		{
-			printf( "Called move-constructor of deferred_apply_carrier\n" );
+			printf( "Called move-constructor of deferred_tt_apply_carrier\n" );
 		}
 
-		~deferred_apply_carrier()
+		~deferred_tt_apply_carrier()
 		{
-			printf( "Called destructor of deferred_apply_carrier\n" );
+			printf( "Called destructor of deferred_tt_apply_carrier\n" );
 		}
 
 		deferred_apply_carrier_base* placement_new_copy( void* ptr ) override
 		{
-			return new ( ptr ) deferred_apply_carrier( *this );
+			return new ( ptr ) deferred_tt_apply_carrier( *this );
 		}
 		deferred_apply_carrier_base* placement_new_move( void* ptr ) override
 		{
-			return new ( ptr ) deferred_apply_carrier( std::move( *this ) );
+			return new ( ptr ) deferred_tt_apply_carrier( std::move( *this ) );
 		}
 		std::unique_ptr<deferred_apply_carrier_base> make_clone( void ) override
 		{
 #if __cpp_lib_make_unique >= 201304
-			return std::make_unique<deferred_apply_carrier>( *this );
+			return std::make_unique<deferred_tt_apply_carrier>( *this );
 #else
-			return std::unique_ptr<deferred_apply_carrier_base>( new deferred_apply_carrier( std::move( *this ) ) );
+			return std::unique_ptr<deferred_apply_carrier_base>( new deferred_tt_apply_carrier( std::move( *this ) ) );
 #endif
 		}
 
 		R apply_func( void ) override
 		{
-			return my_apply_func_impl( my_make_index_sequence<sizeof...( Args )>() );
+			static_assert( std::is_same<R, decltype( f_( values_ ) )>::value, "f_() return value type should be same to R" );
+			return f_( values_ );
 		}
 
 	private:
-		template <size_t... Is>
-		R my_apply_func_impl( my_index_sequence<Is...> )
-		{
-			printf( "my_index_sequence: %s\n", demangle( typeid( my_index_sequence<Is...> ).name() ) );
-
-			// 保持している引数に対して、一定の処理を施し、その結果を適用したい関数に当てはめる。
-			// ポイントは、「適用したい関数に当てはめる」ことだけでなく、「保持している引数に対して、一定の処理を施し」も遅延させていること。
-			// ただ、「一定の処理」をテンプレート化する等の汎用化する方法がうまく浮かばない。。。
-#if 1
-			using cur_apply_tuple_t = std::tuple<typename get_argument_apply_type<typename get_argument_store_type<Args>::type>::type...>;
-			cur_apply_tuple_t apply_values( get_argument_apply_value<Is>( values_ )... );
-			printf( "apply_values: %s\n", demangle( typeid( cur_apply_tuple_t ).name() ) );
-			// printf( std::get<Is>( apply_values )... );
-			return f_( std::get<Is>( apply_values )... );
-#else
-			return f_( std::get<Is>( values_ )... );
-#endif
-		}
-
-		F                                                           f_;
-		std::tuple<typename get_argument_store_type<Args>::type...> values_;
+		using tuple_args_t = std::tuple<typename get_argument_store_type<Args>::type...>;
+		tuple_args_t                       values_;
+		F<tuple_args_t, sizeof...( Args )> f_;
 	};
 
 public:
@@ -273,61 +205,55 @@ public:
 	}
 
 #if __cpp_if_constexpr >= 201606
-	template <class F,
+	template <class ArgHead,
 	          class... Args,
-	          typename std::enable_if<!std::is_same<F, deferred_apply>::value>::type* = nullptr>
-	//   typename std::enable_if<!std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value>::type* = nullptr>
-	deferred_apply( F&& f, Args&&... args )
+	          typename std::enable_if<!std::is_same<ArgHead, deferred_apply>::value>::type* = nullptr>
+	deferred_apply( ArgHead&& arghead, Args&&... args )
 	  : up_args_( nullptr )
 	  , p_args_( nullptr )
 	{
-		using cur_deferred_apply_t = deferred_apply_carrier<F, Args...>;
+		using cur_deferred_apply_t = deferred_tt_apply_carrier<ArgHead, Args...>;
 		printf( "cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
 
 		if constexpr ( buff_size < sizeof( cur_deferred_apply_t ) ) {   // 本来は、C++17から導入されたif constexpr構文を使用するのがあるべき姿
-#if __cpp_lib_make_unique >= 201304
-			up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<F>( f ), std::forward<Args>( args )... );
-#else
-			up_args_ = std::unique_ptr<cur_deferred_apply_t>( new cur_deferred_apply_t( std::forward<F>( f ), std::forward<Args>( args )... ) );
-#endif
-			p_args_ = up_args_.get();
+			up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<ArgHead>( arghead ), std::forward<Args>( args )... );
+			p_args_  = up_args_.get();
 		} else {
-			p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<F>( f ), std::forward<Args>( args )... );
+			p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<ArgHead>( arghead ), std::forward<Args>( args )... );
 		}
 	}
-#else
-
-	template <class F,
+#else   // __cpp_if_constexpr
+	template <class ArgHead,
 	          class... Args,
-	          typename std::enable_if<( !std::is_same<F, deferred_apply>::value ) && ( buff_size < sizeof( deferred_apply_carrier<Args...> ) )>::type* = nullptr>
-	deferred_apply( F&& f, Args&&... args )
+	          typename std::enable_if<!std::is_same<ArgHead, deferred_apply>::value && ( buff_size < sizeof( deferred_tt_apply_carrier<ArgHead, Args...> ) )>::type* = nullptr>
+	deferred_apply( ArgHead&& arghead, Args&&... args )
 	  : up_args_( nullptr )
 	  , p_args_( nullptr )
 	{
-		using cur_deferred_apply_t = deferred_apply_carrier<F, Args...>;
-		printf( "#1:cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
+		using cur_deferred_apply_t = deferred_tt_apply_carrier<ArgHead, Args...>;
+		printf( "cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
 
 #if __cpp_lib_make_unique >= 201304
-		up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<F>( f ), std::forward<Args>( args )... );
+		up_args_ = std::make_unique<cur_deferred_apply_t>( std::forward<ArgHead>( arghead ), std::forward<Args>( args )... );
 #else
-		up_args_ = std::unique_ptr<cur_deferred_apply_t>( new cur_deferred_apply_t( std::forward<F>( f ), std::forward<Args>( args )... ) );
+		up_args_ = std::unique_ptr<cur_deferred_apply_t>( new cur_deferred_apply_t( std::forward<ArgHead>( arghead ), std::forward<Args>( args )... ) );
 #endif
 		p_args_  = up_args_.get();
 	}
 
-	template <class F,
+	template <class ArgHead,
 	          class... Args,
-	          typename std::enable_if<( !std::is_same<F, deferred_apply>::value ) && ( buff_size >= sizeof( deferred_apply_carrier<Args...> ) )>::type* = nullptr>
-	deferred_apply( F&& f, Args&&... args )
+	          typename std::enable_if<!std::is_same<ArgHead, deferred_apply>::value && ( buff_size >= sizeof( deferred_tt_apply_carrier<ArgHead, Args...> ) )>::type* = nullptr>
+	deferred_apply( ArgHead&& arghead, Args&&... args )
 	  : up_args_( nullptr )
 	  , p_args_( nullptr )
 	{
-		using cur_deferred_apply_t = deferred_apply_carrier<F, Args...>;
-		printf( "#2:cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
+		using cur_deferred_apply_t = deferred_tt_apply_carrier<ArgHead, Args...>;
+		printf( "cur_deferred_apply_t: %s, size=%zu\n", demangle( typeid( cur_deferred_apply_t ).name() ), sizeof( cur_deferred_apply_t ) );
 
-		p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<F>( f ), std::forward<Args>( args )... );
+		p_args_ = new ( placement_new_buffer ) cur_deferred_apply_t( std::forward<ArgHead>( arghead ), std::forward<Args>( args )... );
 	}
-#endif
+#endif   // __cpp_if_constexpr
 
 	~deferred_apply()
 	{
@@ -347,11 +273,5 @@ private:
 	deferred_apply_carrier_base*                 p_args_;
 	char                                         placement_new_buffer[buff_size];
 };
-
-template <typename F, typename... Args, typename R = typename std::result_of<F( Args... )>::type>
-auto make_deferred_apply( F&& f, Args&&... args ) -> deferred_apply<R>
-{
-	return deferred_apply<R>( std::forward<F>( f ), std::forward<Args>( args )... );
-}
 
 #endif
