@@ -15,6 +15,8 @@
 
 #include "deferred_apply.hpp"
 
+#include "gtest/gtest.h"
+
 class testA {
 public:
 	testA( void )
@@ -97,15 +99,25 @@ private:
 	}
 };
 
-int test_printf_with_convert( void )
+TEST( Deferred_Apply, test_printf_with_convert1 )
 {
+	// Arrenge
 	auto xx2 = make_deferred_apply( "l, %d, %s\n", 1, "m" );
+
+	// Act
 	xx2.apply( &printf );
 
-	testA aa {};
+	// Assert
+}
 
-	auto xx3 = make_deferred_apply( "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
+TEST( Deferred_Apply, test_printf_with_convert2 )
+{
+	// Arrenge
+	testA aa {};
+	auto  xx3 = make_deferred_apply( "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
+
+	// Act
 	xx3.apply( printf_with_convert() );
 
-	return EXIT_SUCCESS;
+	// Assert
 }
