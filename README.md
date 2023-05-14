@@ -7,8 +7,10 @@ By this functionalty, below behaviour will be possible.
 function "A" called out side of function "B", then function "B" processes function "A" in side of function "B".
 
 Usage:
+```cpp
 auto da = make_deferred_apply( f, a, b, ... );
 auto ret = da.apply();
+```
 
 Since it is intended for temporary storage, lvalue-referenced classes are referenced and not copied.
 Instead, a dangling reference can occur at the time the argument is actually referenced.
@@ -21,8 +23,10 @@ Therefore, class instances and their copies should not be brought out of the cre
 よって、クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。
 
 Usage:
+```cpp
 auto da = make_deferred_apply( f, a, b, ... );
 auto ret = da.apply();
+```
 
 da.apply()によって、f(a,b,...) が実行される。
 
