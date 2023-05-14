@@ -102,10 +102,10 @@ private:
 TEST( Deferred_Apply, test_printf_with_convert1 )
 {
 	// Arrenge
-	auto xx2 = make_deferred_apply( "l, %d, %s\n", 1, "m" );
+	auto xx2 = make_deferred_apply( &printf, "l, %d, %s\n", 1, "m" );
 
 	// Act
-	xx2.apply( &printf );
+	xx2.apply();
 
 	// Assert
 }
@@ -114,10 +114,10 @@ TEST( Deferred_Apply, test_printf_with_convert2 )
 {
 	// Arrenge
 	testA aa {};
-	auto  xx3 = make_deferred_apply( "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
+	auto  xx3 = make_deferred_apply( printf_with_convert(), "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
 
 	// Act
-	xx3.apply( printf_with_convert() );
+	xx3.apply();
 
 	// Assert
 }

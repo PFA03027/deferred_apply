@@ -27,7 +27,7 @@ TEST( Deferred_Apply, test_integlal_literal )
 			return arg;
 		}
 	};
-	auto xx = make_deferred_apply( 1 );
+	auto xx = make_deferred_applying_arguments( 1 );
 
 	// Act
 	auto ret = xx.apply( local::t_func );
@@ -45,7 +45,7 @@ TEST( Deferred_Apply, test_integlal_literal_const )
 			return arg;
 		}
 	};
-	auto xx = make_deferred_apply( 1 );
+	auto xx = make_deferred_applying_arguments( 1 );
 
 	// Act
 	auto ret = xx.apply( local::t_func );
@@ -54,7 +54,7 @@ TEST( Deferred_Apply, test_integlal_literal_const )
 	EXPECT_EQ( 1, ret );
 }
 
-TEST( Deferred_Apply, test_pointer_to_integlal_literal )
+TEST( Deferred_Apply, test_rvalue_pointer_to_lvalue )
 {
 	// Arrange
 	struct local {
@@ -64,7 +64,7 @@ TEST( Deferred_Apply, test_pointer_to_integlal_literal )
 		}
 	};
 	int  test_int_data = 2;
-	auto xx            = make_deferred_apply( &test_int_data );
+	auto xx            = make_deferred_applying_arguments( &test_int_data );
 
 	// Act
 	auto ret = xx.apply( local::t_func );
@@ -73,7 +73,7 @@ TEST( Deferred_Apply, test_pointer_to_integlal_literal )
 	EXPECT_EQ( &test_int_data, ret );
 }
 
-TEST( Deferred_Apply, test_pointer_to_integlal_literal_const )
+TEST( Deferred_Apply, test_rvalue_pointer_to_const_lvalue )
 {
 	// Arrange
 	struct local {
@@ -83,7 +83,47 @@ TEST( Deferred_Apply, test_pointer_to_integlal_literal_const )
 		}
 	};
 	const int test_int_data = 2;
-	auto      xx            = make_deferred_apply( &test_int_data );
+	auto      xx            = make_deferred_applying_arguments( &test_int_data );
+
+	// Act
+	auto ret = xx.apply( local::t_func );
+
+	// Assert
+	EXPECT_EQ( &test_int_data, ret );
+}
+
+TEST( Deferred_Apply, test_lvalue_pointer_to_lvalue )
+{
+	// Arrange
+	struct local {
+		static int* t_func( int* arg )
+		{
+			return arg;
+		}
+	};
+	int  test_int_data   = 2;
+	int* p_test_int_data = &test_int_data;
+	auto xx              = make_deferred_applying_arguments( p_test_int_data );
+
+	// Act
+	auto ret = xx.apply( local::t_func );
+
+	// Assert
+	EXPECT_EQ( &test_int_data, ret );
+}
+
+TEST( Deferred_Apply, test_lvalue_pointer_to_const_lvalue )
+{
+	// Arrange
+	struct local {
+		static const int* t_func( const int* arg )
+		{
+			return arg;
+		}
+	};
+	const int  test_int_data   = 2;
+	const int* p_test_int_data = &test_int_data;
+	auto       xx              = make_deferred_applying_arguments( p_test_int_data );
 
 	// Act
 	auto ret = xx.apply( local::t_func );
@@ -102,7 +142,7 @@ TEST( Deferred_Apply, test_lreference_to_integlal_literal )
 		}
 	};
 	int  test_int_data = 3;
-	auto xx            = make_deferred_apply( test_int_data );
+	auto xx            = make_deferred_applying_arguments( test_int_data );
 
 	// Act
 	auto ret = xx.apply( local::t_func );
@@ -127,7 +167,7 @@ TEST( Deferred_Apply, test_lreference_to_integlal_literal_const )
 		}
 	};
 	const int test_int_data = 3;
-	auto      xx            = make_deferred_apply( test_int_data );
+	auto      xx            = make_deferred_applying_arguments( test_int_data );
 
 	// Act
 	auto ret = xx.apply( local::t_func );
@@ -150,7 +190,7 @@ TEST( Deferred_Apply, test_move_only )
 	};
 	std::unique_ptr<int> up_data = std::unique_ptr<int>( new int( 5 ) );
 	int*                 p_addr  = up_data.get();
-	auto                 xx      = make_deferred_apply( std::move( up_data ) );
+	auto                 xx      = make_deferred_applying_arguments( std::move( up_data ) );
 
 	// Act
 	auto ret = xx.apply( local::t_func );
@@ -170,7 +210,7 @@ TEST( Deferred_Apply, test_literal_string )
 			return arg;
 		}
 	};
-	auto xx = make_deferred_apply( "test_string" );
+	auto xx = make_deferred_applying_arguments( "test_string" );
 
 	// Act
 	auto ret = xx.apply( local::t_func );
