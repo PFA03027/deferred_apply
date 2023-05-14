@@ -309,7 +309,7 @@ private:
  */
 template <typename R>
 class deferred_apply {
-	constexpr static size_t buff_size = 256;
+	constexpr static size_t buff_size = 128;
 
 public:
 	deferred_apply( const deferred_apply& orig )
