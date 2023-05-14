@@ -32,6 +32,8 @@ endif()
 
 add_subdirectory(googletest)
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -DDEFERRED_APPLY_DEBUG")
+
 file(GLOB SOURCES src/*.cpp )
 # set(SOURCES test.cpp)
 

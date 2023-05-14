@@ -177,25 +177,28 @@ public:
 	}
 
 	template <typename F>
-	auto apply( F&& f )
-#if __cpp_decltype_auto >= 201304
-#else
-		-> typename std::result_of<F( OrigArgs... )>::type
-#endif
-	{
-		return apply_impl( std::forward<F>( f ), my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() );
-	}
-
-private:
-	template <typename F, size_t... Is>
-	auto apply_impl( F&& f, my_index_sequence<Is...> )
+	decltype( auto ) apply( F&& f )
 #if __cpp_decltype_auto >= 201304
 #else
 		-> typename std::result_of<F( OrigArgs... )>::type
 #endif
 	{
 #ifdef DEFERRED_APPLY_DEBUG
-		printf( "apply_values: %s\n", demangle( typeid( f ).name() ) );
+		printf( "apply_impl: %s\n", demangle( typeid( decltype( apply_impl( std::forward<F>( f ), my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() ) ) ).name() ) );
+#endif
+		return apply_impl( std::forward<F>( f ), my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() );
+	}
+
+private:
+	template <typename F, size_t... Is>
+	decltype( auto ) apply_impl( F&& f, my_index_sequence<Is...> )
+#if __cpp_decltype_auto >= 201304
+#else
+		-> typename std::result_of<F( OrigArgs... )>::type
+#endif
+	{
+#ifdef DEFERRED_APPLY_DEBUG
+		printf( "f: %s\n", demangle( typeid( f ).name() ) );
 #endif
 		return ( std::forward<F>( f ) )(
 			static_cast<typename get_argument_apply_type<OrigArgs, typename get_argument_store_type<OrigArgs>::type>::type>(
