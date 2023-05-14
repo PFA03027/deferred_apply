@@ -1,6 +1,14 @@
 
+SUFFIX   = .cpp
+CFLAGS   = -Wall -O2 -DDEFERRED_APPLY_DEBUG
+
+SRCDIR   = test
+INCLUDE  = inc
+
+SRCS  = $(wildcard $(SRCDIR)/*$(SUFFIX))
 
 all: test/deferred_apply_test_c++11.out test/deferred_apply_test.out
+
 clean:
 	-rm -f  test/deferred_apply_test_c++11.out test/deferred_apply_test.out
 
@@ -9,8 +17,9 @@ test: all
 	echo
 	test/deferred_apply_test_c++11.out
 
-test/deferred_apply_test.out : test/deferred_apply_test.cpp inc/deferred_apply.hpp
-	g++ -O2 -g -o test/deferred_apply_test.out -Iinc test/deferred_apply_test.cpp
+test/deferred_apply_test.out : inc/deferred_apply.hpp $(SRCS)
+	g++ $(CFLAGS) -o test/deferred_apply_test.out -I$(INCLUDE) $(SRCS)
 
-test/deferred_apply_test_c++11.out : test/deferred_apply_test.cpp inc/deferred_apply.hpp
-	g++ -O2 -g -std=c++11 -o test/deferred_apply_test_c++11.out -Iinc test/deferred_apply_test.cpp
+test/deferred_apply_test_c++11.out : inc/deferred_apply.hpp $(SRCS)
+	g++ $(CFLAGS) -std=c++11 -o test/deferred_apply_test_c++11.out -I$(INCLUDE) $(SRCS)
+
