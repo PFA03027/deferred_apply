@@ -150,25 +150,25 @@ struct get_argument_apply_type {
  *
  */
 template <class... OrigArgs>
-class deferred_apply {
+class deferred_applying_arguments {
 public:
-	deferred_apply( const deferred_apply& orig )
+	deferred_applying_arguments( const deferred_applying_arguments& orig )
 	  : values_( orig.values_ )
 	{
 	}
-	deferred_apply( deferred_apply&& orig )
+	deferred_applying_arguments( deferred_applying_arguments&& orig )
 	  : values_( std::move( orig.values_ ) )
 	{
 	}
 
 	template <typename XArgsHead,
 	          typename... XArgs,
-	          typename std::enable_if<!std::is_same<typename std::remove_reference<XArgsHead>::type, deferred_apply>::value>::type* = nullptr>
-	deferred_apply( XArgsHead&& argshead, XArgs&&... args )
+	          typename std::enable_if<!std::is_same<typename std::remove_reference<XArgsHead>::type, deferred_applying_arguments>::value>::type* = nullptr>
+	deferred_applying_arguments( XArgsHead&& argshead, XArgs&&... args )
 	  : values_( std::forward<XArgsHead>( argshead ), std::forward<XArgs>( args )... )
 	{
 #ifdef DEFERRED_APPLY_DEBUG
-		printf( "Called constructor of deferred_apply\n" );
+		printf( "Called constructor of deferred_applying_arguments\n" );
 		printf( "\tXArgHead: %s, XArgs: %s\n", deferred_apply_internal::demangle( typeid( XArgsHead ).name() ), deferred_apply_internal::demangle( typeid( std::tuple<XArgs...> ).name() ) );
 		printf( "\tvalues_: %s\n", deferred_apply_internal::demangle( typeid( values_ ).name() ) );
 #endif
@@ -207,19 +207,14 @@ private:
 	tuple_args_t values_;
 };
 
-// int printf_type( const char* p_tn )
-// {
-// 	return printf( "%s, ", p_tn );
-// }
-
 template <class... Args>
-auto make_deferred_apply( Args&&... args ) -> decltype( deferred_apply<Args&&...>( std::forward<Args>( args )... ) )
+auto make_deferred_apply( Args&&... args ) -> decltype( deferred_applying_arguments<Args&&...>( std::forward<Args>( args )... ) )
 {
 #ifdef DEFERRED_APPLY_DEBUG
 	// auto aa = { printf_type( deferred_apply_internal::demangle( typeid( Args ).name() ) )... };
 	// printf( "\n" );
 #endif
-	return deferred_apply<Args&&...>( std::forward<Args>( args )... );
+	return deferred_applying_arguments<Args&&...>( std::forward<Args>( args )... );
 }
 
 #endif
