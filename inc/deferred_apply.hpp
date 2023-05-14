@@ -78,7 +78,7 @@ struct get_argument_store_type_impl {
 	template <typename T>
 	static auto check( T x ) -> typename std::enable_if<std::is_pointer<typename std::decay<T>::type>::value, typename std::decay<T>::type>::type;
 
-	// 上記以外は、そのまま型を返す
+	// 上記以外は、そのまま型を返す。
 	template <typename T>
 	static auto check( ... ) -> typename std::remove_reference<T>::type;
 };
@@ -134,7 +134,7 @@ struct get_argument_apply_type {
  * 代わりに、引数を実際に参照する時点でダングリング参照が発生する可能性がある。
  * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。
  *
- * auto da = make_deferred_apply( a, b, ...);
+ * auto da = make_deferred_apply( a, b, ... );
  * auto ret = da.apply(f);
  *
  * da.apply(f)によって、f(a,b,...) が実行される。
@@ -145,10 +145,6 @@ struct get_argument_apply_type {
  * @note
  * ラムダ式のキャプチャを使うことでも同等のことが可能だが、
  * キャプチャ部分には右辺値を置けないため、左辺値として定義した変数＋参照キャプチャ経由で行う必要があるためかなり面倒。
- *
- * @note
- * std::tupleを関数引数に展開して関数を実行する技法は、一般的に使用されるパラメータパック展開の技法を適用することを期待している。
- * 実装例としては、deferred_apply を参照すること。
  *
  */
 template <class... OrigArgs>
@@ -177,10 +173,10 @@ public:
 	}
 
 	template <typename F>
-	decltype( auto ) apply( F&& f )
 #if __cpp_decltype_auto >= 201304
+	decltype( auto ) apply( F&& f )
 #else
-		-> typename std::result_of<F( OrigArgs... )>::type
+	auto apply( F&& f ) -> typename std::result_of<F( OrigArgs... )>::type
 #endif
 	{
 #ifdef DEFERRED_APPLY_DEBUG
@@ -191,16 +187,16 @@ public:
 
 private:
 	template <typename F, size_t... Is>
-	decltype( auto ) apply_impl( F&& f, my_index_sequence<Is...> )
 #if __cpp_decltype_auto >= 201304
+	decltype( auto ) apply_impl( F&& f, my_index_sequence<Is...> )
 #else
-		-> typename std::result_of<F( OrigArgs... )>::type
+	auto apply_impl( F&& f, my_index_sequence<Is...> ) -> typename std::result_of<F( OrigArgs... )>::type
 #endif
 	{
 #ifdef DEFERRED_APPLY_DEBUG
 		printf( "f: %s\n", demangle( typeid( f ).name() ) );
 #endif
-		return ( std::forward<F>( f ) )(
+		return f(
 			static_cast<typename get_argument_apply_type<OrigArgs, typename get_argument_store_type<OrigArgs>::type>::type>(
 				std::get<Is>( values_ ) )... );
 	}

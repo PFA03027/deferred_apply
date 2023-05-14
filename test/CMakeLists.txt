@@ -30,15 +30,10 @@ message(FATAL_ERROR "The submodules were not downloaded! GOOGLETEST was turned o
 # git commit -m "Add submodule googletest for testing"
 endif()
 
-add_subdirectory(googletest)
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -DDEFERRED_APPLY_DEBUG")
 
-file(GLOB SOURCES src/*.cpp )
-# set(SOURCES test.cpp)
+add_subdirectory(googletest)
+add_subdirectory(build_by_cpp11)
+add_subdirectory(build_by_cpp14)
+add_subdirectory(build_by_cpp17)
 
-add_executable(test_deferred_apply ${SOURCES})
-target_include_directories(test_deferred_apply PRIVATE ../inc)
-target_link_libraries(test_deferred_apply gtest gtest_main pthread)
-
-add_test(NAME test_deferred_apply COMMAND $<TARGET_FILE:test_deferred_apply>)
