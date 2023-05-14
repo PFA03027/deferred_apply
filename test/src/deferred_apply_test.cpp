@@ -110,7 +110,7 @@ TEST( Deferred_Apply, test_lreference_to_integlal_literal )
 	// Assert
 	// static_assert( std::is_lvalue_reference<decltype( xx.apply( t5_func ) )>::value, "ret should be left value reference" );
 #ifdef DEFERRED_APPLY_DEBUG
-	printf( "xx.apply( local::t_func ): %s\n", demangle( typeid( decltype( xx.apply( local::t_func ) ) ).name() ) );
+	printf( "xx.apply( local::t_func ): %s\n", deferred_apply_internal::demangle( typeid( decltype( xx.apply( local::t_func ) ) ).name() ) );
 #endif
 	EXPECT_EQ( 3, ret );
 	ret = 4;

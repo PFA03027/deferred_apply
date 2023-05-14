@@ -9,16 +9,18 @@
  *
  */
 
-#ifndef DEFERRED_APPLY_EXP_HPP_
-#define DEFERRED_APPLY_EXP_HPP_
+#ifndef DEFERRED_APPLY_HPP_
+#define DEFERRED_APPLY_HPP_
 
-#include <cxxabi.h>   // for abi::__cxa_demangle
+#include <cxxabi.h>   // for abi::__cxa_deferred_apply_internal::demangle
 
 #include <cstdlib>
 #include <memory>
 #include <tuple>
 #include <type_traits>
 #include <utility>
+
+namespace deferred_apply_internal {
 
 #ifdef DEFERRED_APPLY_DEBUG
 /* デバッグ用デマングル関数 */
@@ -27,6 +29,7 @@ inline char* demangle( const char* demangled )
 	int status;
 	return abi::__cxa_demangle( demangled, 0, 0, &status );
 }
+
 #endif
 
 #if __cplusplus >= 201402L
@@ -61,10 +64,6 @@ using my_make_index_sequence = decltype( internal::S<N> {}.f() );
 ////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief 引数を保持するためのtuple用の型を求めるメタ関数の実装クラス
- *
- * Tがunion or クラスの場合で左辺値参照ならば、型Tのconst参照型を返す
- * Tが配列型ならば、型Tの要素型のconstへのポインタ型を返す（decay+add_constを適用する）
- * Tが上記以外なら（＝組込み型、enum型や、右辺値参照のクラス等）なら、型Tをそのまま返す。
  */
 struct get_argument_store_type_impl {
 	// 左辺値参照で、かつクラスかunion型の場合に、左辺値参照を型として返す。
@@ -85,6 +84,10 @@ struct get_argument_store_type_impl {
 
 /**
  * @brief 引数を保持するためのtuple用の型を求めるメタ関数
+ *
+ * @li Tがunion or クラスの場合で左辺値参照ならば、型Tの左辺値参照型を返す
+ * @li Tが配列型ならば、型Tの要素型のポインタ型を返す（decayを適用する）
+ * @li Tが上記以外なら（＝組込み型、enum型や、右辺値参照のクラス等）なら、型Tをそのまま返す。
  */
 template <typename T>
 struct get_argument_store_type {
@@ -92,7 +95,7 @@ struct get_argument_store_type {
 };
 
 /**
- * @brief get_argument_store_type<>で保持した実引数を、関数に適用するための型を求めるメタ関数の実装
+ * @brief deferred_apply_internal::get_argument_store_type<>で保持した実引数を、関数に適用するための型を求めるメタ関数の実装
  *
  */
 struct get_argument_apply_type_impl {
@@ -108,14 +111,10 @@ struct get_argument_apply_type_impl {
 };
 
 /**
- * @brief 引数を保持するためのtuple用の型を求めるメタ関数
- */
-
-/**
- * @brief get_argument_store_type<>で保持した実引数を、関数に適用するための型を求めるメタ関数
+ * @brief deferred_apply_internal::get_argument_store_type<>で保持した実引数を、関数に適用するための型を求めるメタ関数
  *
- * Tが右辺値参照の場合、Uを右辺値参照とする。
- * Tが左辺値参照の場合、Uを左辺値参照とする。
+ * Tが右辺値参照の場合、Uの右辺値参照型を返す。
+ * Tが左辺値参照の場合、Uの左辺値参照型を返す。
  * それ以外の場合は、Uをそのまま返す
  *
  * @tparam T もととなった引数の型
@@ -126,21 +125,24 @@ struct get_argument_apply_type {
 	using type = decltype( get_argument_apply_type_impl::check<T, U>( std::declval<T>(), std::declval<U>() ) );
 };
 
+}   // namespace deferred_apply_internal
+
 ////////////////////////////////////////////////////////////////////////////////////////////
 /**
  * @brief 関数の実行を延期するために、一時的引数を保持することを目的としたクラス
  *
- * 一時的な保持を目的としているため、左辺値参照されたクラスは参照を保持する方式をとることで、コピーしない。
+ * 一時的な保持を目的としているため、左辺値参照されたクラスは参照を保持する方式で、コピーしない。
  * 代わりに、引数を実際に参照する時点でダングリング参照が発生する可能性がある。
  * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。
  *
+ * 使用例：
  * auto da = make_deferred_apply( a, b, ... );
  * auto ret = da.apply(f);
  *
  * da.apply(f)によって、f(a,b,...) が実行される。
  *
- * @note
- * C++11でもコンパイル可能なように、クラス内クラスの定義を先行定義するスタイルとしている。
+ * apply()の再適用が可能かどうかは、引数をどのように渡したか、あるいはfの特性に依存する。
+ * 例えば、aが右辺値参照で引き渡された場合、1回目のapply()の適用によって、deferred_apply内で保持していた値が無効値となっている可能性がある。
  *
  * @note
  * ラムダ式のキャプチャを使うことでも同等のことが可能だが、
@@ -167,8 +169,8 @@ public:
 	{
 #ifdef DEFERRED_APPLY_DEBUG
 		printf( "Called constructor of deferred_apply\n" );
-		printf( "\tXArgHead: %s, XArgs: %s\n", demangle( typeid( XArgsHead ).name() ), demangle( typeid( std::tuple<XArgs...> ).name() ) );
-		printf( "\tvalues_: %s\n", demangle( typeid( values_ ).name() ) );
+		printf( "\tXArgHead: %s, XArgs: %s\n", deferred_apply_internal::demangle( typeid( XArgsHead ).name() ), deferred_apply_internal::demangle( typeid( std::tuple<XArgs...> ).name() ) );
+		printf( "\tvalues_: %s\n", deferred_apply_internal::demangle( typeid( values_ ).name() ) );
 #endif
 	}
 
@@ -180,28 +182,28 @@ public:
 #endif
 	{
 #ifdef DEFERRED_APPLY_DEBUG
-		printf( "apply_impl: %s\n", demangle( typeid( decltype( apply_impl( std::forward<F>( f ), my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() ) ) ).name() ) );
+		printf( "apply_impl: %s\n", deferred_apply_internal::demangle( typeid( decltype( apply_impl( std::forward<F>( f ), deferred_apply_internal::my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() ) ) ).name() ) );
 #endif
-		return apply_impl( std::forward<F>( f ), my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() );
+		return apply_impl( std::forward<F>( f ), deferred_apply_internal::my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() );
 	}
 
 private:
 	template <typename F, size_t... Is>
 #if __cpp_decltype_auto >= 201304
-	decltype( auto ) apply_impl( F&& f, my_index_sequence<Is...> )
+	decltype( auto ) apply_impl( F&& f, deferred_apply_internal::my_index_sequence<Is...> )
 #else
-	auto apply_impl( F&& f, my_index_sequence<Is...> ) -> typename std::result_of<F( OrigArgs... )>::type
+	auto apply_impl( F&& f, deferred_apply_internal::my_index_sequence<Is...> ) -> typename std::result_of<F( OrigArgs... )>::type
 #endif
 	{
 #ifdef DEFERRED_APPLY_DEBUG
-		printf( "f: %s\n", demangle( typeid( f ).name() ) );
+		printf( "f: %s\n", deferred_apply_internal::demangle( typeid( f ).name() ) );
 #endif
 		return f(
-			static_cast<typename get_argument_apply_type<OrigArgs, typename get_argument_store_type<OrigArgs>::type>::type>(
+			static_cast<typename deferred_apply_internal::get_argument_apply_type<OrigArgs, typename deferred_apply_internal::get_argument_store_type<OrigArgs>::type>::type>(
 				std::get<Is>( values_ ) )... );
 	}
 
-	using tuple_args_t = std::tuple<typename get_argument_store_type<OrigArgs>::type...>;
+	using tuple_args_t = std::tuple<typename deferred_apply_internal::get_argument_store_type<OrigArgs>::type...>;
 	tuple_args_t values_;
 };
 
@@ -214,7 +216,7 @@ template <class... Args>
 auto make_deferred_apply( Args&&... args ) -> decltype( deferred_apply<Args&&...>( std::forward<Args>( args )... ) )
 {
 #ifdef DEFERRED_APPLY_DEBUG
-	// auto aa = { printf_type( demangle( typeid( Args ).name() ) )... };
+	// auto aa = { printf_type( deferred_apply_internal::demangle( typeid( Args ).name() ) )... };
 	// printf( "\n" );
 #endif
 	return deferred_apply<Args&&...>( std::forward<Args>( args )... );
