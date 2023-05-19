@@ -430,4 +430,18 @@ auto make_deferred_apply( F&& f, Args&&... args )
 	return deferred_apply<return_type>( std::forward<F>( f ), std::forward<Args>( args )... );
 }
 
+/**
+ * @brief 関数の実行を延期するために、関数と引数を保持することを目的としたクラスのインスタンスを生成するヘルパ関数
+ *
+ * Rは、 std::invoke_result<F, Args&&...>::type との間で変換可能であること。
+ *
+ * @return deferred_apply<R>のインスタンス。
+ *
+ */
+template <typename R, typename F, typename... Args>
+deferred_apply<R> make_deferred_apply_r( F&& f, Args&&... args )
+{
+	return deferred_apply<R>( std::forward<F>( f ), std::forward<Args>( args )... );
+}
+
 #endif
