@@ -99,6 +99,19 @@ private:
 	}
 };
 
+TEST( Deferred_Apply, move_from_empty_instance )
+{
+	// Arrenge
+	auto xx1 = make_deferred_apply( &printf, "l, %d, %s\n", 1, "m" );
+	auto xx2 = std::move( xx1 );
+	auto xx3 = std::move( xx1 );
+
+	// Act
+	// xx2.apply();
+
+	// Assert
+}
+
 TEST( Deferred_Apply, test_printf_with_convert1 )
 {
 	// Arrenge
@@ -141,6 +154,99 @@ TEST( Deferred_Apply_r, test_printf_with_convert2 )
 
 	// Act
 	xx3.apply();
+
+	// Assert
+}
+
+TEST( Deferred_Apply_r, copy_constructor )
+{
+	// Arrenge
+	testA aa {};
+	auto  xx3 = make_deferred_apply_r<uint8_t>( printf_with_convert(), "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
+	auto  xx4 = xx3;
+
+	// Act
+	xx4.apply();
+
+	// Assert
+}
+
+TEST( Deferred_Apply_r, move_constructor )
+{
+	// Arrenge
+	testA aa {};
+	auto  xx3 = make_deferred_apply_r<uint8_t>( printf_with_convert(), "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
+	auto  xx4 = std::move( xx3 );
+
+	// Act
+	xx4.apply();
+
+	// Assert
+}
+
+class void_functor {
+public:
+	void_functor( void )                = default;
+	void_functor( const void_functor& ) = default;
+	void_functor( void_functor&& )      = default;
+	~void_functor()                     = default;
+
+	template <typename... OrigArgs>
+	void operator()( OrigArgs&&... args )
+	{
+		return;
+	}
+
+private:
+	std::shared_ptr<int> up_tmp_;
+};
+
+TEST( Deferred_Apply_r, big_arguments )
+{
+	// Arrenge
+	testA aa {};
+	auto  xx3 = make_deferred_apply_r<void>(
+        void_functor(),
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        0,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        33 );
+
+	// Act
+	xx3.apply();
+	auto xx4 = xx3;
+	auto xx5 = std::move( xx3 );
+	xx4.apply();
+	xx5.apply();
 
 	// Assert
 }

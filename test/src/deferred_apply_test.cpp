@@ -18,7 +18,7 @@
 
 #include "gtest/gtest.h"
 
-TEST( Deferred_Apply, test_integlal_literal )
+TEST( DeferredApplyingArguments, test_integlal_literal )
 {
 	// Arrange
 	struct local {
@@ -36,7 +36,7 @@ TEST( Deferred_Apply, test_integlal_literal )
 	EXPECT_EQ( 1, ret );
 }
 
-TEST( Deferred_Apply, test_integlal_literal_const )
+TEST( DeferredApplyingArguments, test_integlal_literal_const )
 {
 	// Arrange
 	struct local {
@@ -54,7 +54,7 @@ TEST( Deferred_Apply, test_integlal_literal_const )
 	EXPECT_EQ( 1, ret );
 }
 
-TEST( Deferred_Apply, test_rvalue_pointer_to_lvalue )
+TEST( DeferredApplyingArguments, test_rvalue_pointer_to_lvalue )
 {
 	// Arrange
 	struct local {
@@ -73,7 +73,7 @@ TEST( Deferred_Apply, test_rvalue_pointer_to_lvalue )
 	EXPECT_EQ( &test_int_data, ret );
 }
 
-TEST( Deferred_Apply, test_rvalue_pointer_to_const_lvalue )
+TEST( DeferredApplyingArguments, test_rvalue_pointer_to_const_lvalue )
 {
 	// Arrange
 	struct local {
@@ -92,7 +92,7 @@ TEST( Deferred_Apply, test_rvalue_pointer_to_const_lvalue )
 	EXPECT_EQ( &test_int_data, ret );
 }
 
-TEST( Deferred_Apply, test_lvalue_pointer_to_lvalue )
+TEST( DeferredApplyingArguments, test_lvalue_pointer_to_lvalue )
 {
 	// Arrange
 	struct local {
@@ -112,7 +112,7 @@ TEST( Deferred_Apply, test_lvalue_pointer_to_lvalue )
 	EXPECT_EQ( &test_int_data, ret );
 }
 
-TEST( Deferred_Apply, test_lvalue_pointer_to_const_lvalue )
+TEST( DeferredApplyingArguments, test_lvalue_pointer_to_const_lvalue )
 {
 	// Arrange
 	struct local {
@@ -132,7 +132,7 @@ TEST( Deferred_Apply, test_lvalue_pointer_to_const_lvalue )
 	EXPECT_EQ( &test_int_data, ret );
 }
 
-TEST( Deferred_Apply, test_lreference_to_integlal_literal )
+TEST( DeferredApplyingArguments, test_lreference_to_integlal_literal )
 {
 	// Arrange
 	struct local {
@@ -159,7 +159,7 @@ TEST( Deferred_Apply, test_lreference_to_integlal_literal )
 	// EXPECT_EQ( 4, test_int_data );
 }
 
-TEST( Deferred_Apply, test_lreference_to_integlal_literal_const )
+TEST( DeferredApplyingArguments, test_lreference_to_integlal_literal_const )
 {
 	// Arrange
 	struct local {
@@ -181,7 +181,7 @@ TEST( Deferred_Apply, test_lreference_to_integlal_literal_const )
 	EXPECT_EQ( test_int_data, ret );
 }
 
-TEST( Deferred_Apply, test_move_only )
+TEST( DeferredApplyingArguments, test_move_only )
 {
 	// Arrange
 	struct local {
@@ -203,7 +203,7 @@ TEST( Deferred_Apply, test_move_only )
 	EXPECT_EQ( 5, ( *ret ) );
 }
 
-TEST( Deferred_Apply, test_literal_string )
+TEST( DeferredApplyingArguments, test_literal_string )
 {
 	// Arrange
 	struct local {
@@ -216,6 +216,49 @@ TEST( Deferred_Apply, test_literal_string )
 
 	// Act
 	auto ret = xx.apply( local::t_func );
+
+	// Assert
+	EXPECT_EQ( std::type_index( typeid( const char* ) ), std::type_index( typeid( ret ) ) );
+	EXPECT_STREQ( "test_string", ret );
+}
+
+TEST( DeferredApplyingArguments, copy_constructor )
+{
+	// Arrange
+	struct local {
+		static const char* t_func( const char* arg )
+		{
+			return arg;
+		}
+	};
+	auto xx = make_deferred_applying_arguments( "test_string" );
+
+	// Act
+	auto yy     = xx;
+	auto ret_xx = xx.apply( local::t_func );
+	auto ret_yy = yy.apply( local::t_func );
+
+	// Assert
+	EXPECT_EQ( std::type_index( typeid( const char* ) ), std::type_index( typeid( ret_xx ) ) );
+	EXPECT_STREQ( "test_string", ret_xx );
+	EXPECT_EQ( std::type_index( typeid( const char* ) ), std::type_index( typeid( ret_yy ) ) );
+	EXPECT_STREQ( "test_string", ret_yy );
+}
+
+TEST( DeferredApplyingArguments, move_constructor )
+{
+	// Arrange
+	struct local {
+		static const char* t_func( const char* arg )
+		{
+			return arg;
+		}
+	};
+	auto xx = make_deferred_applying_arguments( "test_string" );
+
+	// Act
+	auto yy  = std::move( xx );
+	auto ret = yy.apply( local::t_func );
 
 	// Assert
 	EXPECT_EQ( std::type_index( typeid( const char* ) ), std::type_index( typeid( ret ) ) );

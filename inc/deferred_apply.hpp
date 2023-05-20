@@ -250,11 +250,15 @@ public:
 	{
 	}
 
-	template <typename XF,
-	          typename... XArgs,
-	          typename std::enable_if<!std::is_same<typename std::remove_reference<XF>::type, deferred_apply_container>::value>::type* = nullptr>
-	deferred_apply_container( XF&& f, XArgs&&... args )
-	  : functor_( std::forward<XF>( f ) )
+	template <typename... XArgs>
+	deferred_apply_container( F& f, XArgs&&... args )
+	  : functor_( f )
+	  , arguments_keeper_( std::forward<XArgs>( args )... )
+	{
+	}
+	template <typename... XArgs>
+	deferred_apply_container( F&& f, XArgs&&... args )
+	  : functor_( std::move( f ) )
 	  , arguments_keeper_( std::forward<XArgs>( args )... )
 	{
 	}
@@ -344,7 +348,7 @@ public:
 #if __cpp_if_constexpr >= 201606
 	template <typename F,
 	          typename... Args,
-	          typename std::enable_if<!std::is_same<F, deferred_apply>::value>::type* = nullptr>
+	          typename std::enable_if<!std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
 	  : up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
@@ -361,7 +365,7 @@ public:
 #else   // __cpp_if_constexpr
 	template <typename F,
 	          typename... Args,
-	          typename std::enable_if<!std::is_same<F, deferred_apply>::value && ( buff_size < sizeof( deferred_apply_container<R, F, Args...> ) )>::type* = nullptr>
+	          typename std::enable_if<!std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value && ( buff_size < sizeof( deferred_apply_container<R, typename std::remove_reference<F>::type, Args...> ) )>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
 	  : up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
@@ -378,7 +382,7 @@ public:
 
 	template <typename F,
 	          typename... Args,
-	          typename std::enable_if<!std::is_same<F, deferred_apply>::value && ( buff_size >= sizeof( deferred_apply_container<R, F, Args...> ) )>::type* = nullptr>
+	          typename std::enable_if<( !std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value ) && ( buff_size >= sizeof( deferred_apply_container<R, typename std::remove_reference<F>::type, Args...> ) )>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
 	  : up_cntner_( nullptr )
 	  , p_cntner_( nullptr )

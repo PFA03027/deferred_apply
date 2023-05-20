@@ -30,7 +30,10 @@ message(FATAL_ERROR "The submodules were not downloaded! GOOGLETEST was turned o
 # git commit -m "Add submodule googletest for testing"
 endif()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -DDEFERRED_APPLY_DEBUG")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+
+message("[BUILD] ${BUILD_TARGET}")
+include(${BUILD_TARGET}.cmake)
 
 add_subdirectory(googletest)
 add_subdirectory(build_by_cpp11)
