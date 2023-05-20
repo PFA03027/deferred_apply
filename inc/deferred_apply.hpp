@@ -168,12 +168,6 @@ public:
 	deferred_applying_arguments( XArgsHead&& argshead, XArgs&&... args )
 	  : values_( std::forward<XArgsHead>( argshead ), std::forward<XArgs>( args )... )
 	{
-#ifdef DEFERRED_APPLY_DEBUG
-		printf( "Called constructor of deferred_applying_arguments\n" );
-		printf( "\tthis class: %s\n", deferred_apply_internal::demangle( typeid( *this ).name() ) );
-		printf( "\tXArg: %s\n", deferred_apply_internal::demangle( typeid( std::tuple<XArgsHead, XArgs...> ).name() ) );
-		printf( "\tvalues_: %s\n", deferred_apply_internal::demangle( typeid( values_ ).name() ) );
-#endif
 	}
 
 	template <typename F>
@@ -183,11 +177,24 @@ public:
 	auto apply( F&& f ) -> typename std::result_of<F( OrigArgs... )>::type
 #endif
 	{
-#ifdef DEFERRED_APPLY_DEBUG
-		printf( "apply_impl: %s\n", deferred_apply_internal::demangle( typeid( decltype( apply_impl( std::forward<F>( f ), deferred_apply_internal::my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() ) ) ).name() ) );
-#endif
 		return apply_impl( std::forward<F>( f ), deferred_apply_internal::my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() );
 	}
+
+#ifdef DEFERRED_APPLY_DEBUG
+	void debug_type_info( void )
+	{
+		printf( "Called constructor of deferred_applying_arguments\n" );
+		printf( "\tthis class: %s\n", deferred_apply_internal::demangle( typeid( *this ).name() ) );
+		printf( "\tvalues_: %s\n", deferred_apply_internal::demangle( typeid( values_ ).name() ) );
+	}
+
+	template <typename F>
+	void debug_apply_type_info( F&& f )
+	{
+		printf( "f: %s\n", deferred_apply_internal::demangle( typeid( f ).name() ) );
+		printf( "apply_impl: %s\n", deferred_apply_internal::demangle( typeid( decltype( apply_impl( std::forward<F>( f ), deferred_apply_internal::my_make_index_sequence<std::tuple_size<tuple_args_t>::value>() ) ) ).name() ) );
+	}
+#endif
 
 private:
 	template <typename F, size_t... Is>
@@ -197,12 +204,11 @@ private:
 	auto apply_impl( F&& f, deferred_apply_internal::my_index_sequence<Is...> ) -> typename std::result_of<F( OrigArgs... )>::type
 #endif
 	{
-#ifdef DEFERRED_APPLY_DEBUG
-		printf( "f: %s\n", deferred_apply_internal::demangle( typeid( f ).name() ) );
-#endif
-		return f(
-			static_cast<typename deferred_apply_internal::get_argument_apply_type<OrigArgs, typename deferred_apply_internal::get_argument_store_type<OrigArgs>::type>::type>(
-				std::get<Is>( values_ ) )... );
+		return f( static_cast<
+				  typename deferred_apply_internal::get_argument_apply_type<
+					  OrigArgs,
+					  typename deferred_apply_internal::get_argument_store_type<OrigArgs>::type>::type>(
+			std::get<Is>( values_ ) )... );
 	}
 
 	using tuple_args_t = std::tuple<typename deferred_apply_internal::get_argument_store_type<OrigArgs>::type...>;
@@ -212,10 +218,6 @@ private:
 template <class... Args>
 auto make_deferred_applying_arguments( Args&&... args ) -> decltype( deferred_applying_arguments<Args&&...>( std::forward<Args>( args )... ) )
 {
-#ifdef DEFERRED_APPLY_DEBUG
-	// auto aa = { printf_type( deferred_apply_internal::demangle( typeid( Args ).name() ) )... };
-	// printf( "\n" );
-#endif
 	return deferred_applying_arguments<Args&&...>( std::forward<Args>( args )... );
 }
 
