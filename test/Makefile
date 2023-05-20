@@ -25,7 +25,7 @@ debug-all: cmake_debug_configure
 test: debug-all
 	set -e; cd build; cmake --build . -j ${JOBS} --target test
 
-codecoverage: cmake_codecoverage_configure
+coverage: cmake_codecoverage_configure
 	set -e; \
 	cd build; \
 	cmake --build . -j ${JOBS} -v; \

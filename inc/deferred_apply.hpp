@@ -12,7 +12,9 @@
 #ifndef DEFERRED_APPLY_HPP_
 #define DEFERRED_APPLY_HPP_
 
+#ifdef DEFERRED_APPLY_DEBUG
 #include <cxxabi.h>   // for abi::__cxa_deferred_apply_internal::demangle
+#endif
 
 #include <cstdlib>
 #include <memory>
@@ -66,18 +68,17 @@ using my_make_index_sequence = decltype( internal::S<N> {}.f() );
  * @brief 引数を保持するためのtuple用の型を求めるメタ関数の実装クラス
  */
 struct get_argument_store_type_impl {
-	// 左辺値参照で、かつクラスかunion型の場合に、左辺値参照を型として返す。
+	// 配列型ではなく、かつ左辺値参照の場合に、左辺値参照を型として返す。
 	template <typename T>
 	static auto check( T x ) -> typename std::enable_if<
-		std::is_lvalue_reference<T>::value &&
-			( std::is_class<typename std::remove_reference<T>::type>::value || std::is_union<typename std::remove_reference<T>::type>::value ),
+		std::is_lvalue_reference<T>::value && !std::is_pointer<typename std::decay<T>::type>::value,
 		T>::type;
 
 	// 配列型は、関数テンプレートと同じ推測を適用してた型に変換して返す。
 	template <typename T>
 	static auto check( T x ) -> typename std::enable_if<std::is_pointer<typename std::decay<T>::type>::value, typename std::decay<T>::type>::type;
 
-	// 上記以外は、そのまま型を返す。
+	// 上記以外は、右辺値参照となる。引数を保持する必要があるため、参照を外した型を返す。
 	template <typename T>
 	static auto check( ... ) -> typename std::remove_reference<T>::type;
 };
@@ -85,9 +86,9 @@ struct get_argument_store_type_impl {
 /**
  * @brief 引数を保持するためのtuple用の型を求めるメタ関数
  *
- * @li Tがunion or クラスの場合で左辺値参照ならば、型Tの左辺値参照型を返す
+ * @li Tが配列型ではなく、かつ左辺値参照の場合に、左辺値参照を型として返す。
  * @li Tが配列型ならば、型Tの要素型のポインタ型を返す（decayを適用する）
- * @li Tが上記以外なら（＝組込み型、enum型や、右辺値参照のクラス等）なら、型Tをそのまま返す。
+ * @li Tが上記以外なら右辺値参照となる。引数を保持する必要があるため、参照を外した型を返す。
  */
 template <typename T>
 struct get_argument_store_type {
@@ -169,7 +170,7 @@ public:
 	{
 #ifdef DEFERRED_APPLY_DEBUG
 		printf( "Called constructor of deferred_applying_arguments\n" );
-		printf( "\this class: %s\n", deferred_apply_internal::demangle( typeid( *this ).name() ) );
+		printf( "\tthis class: %s\n", deferred_apply_internal::demangle( typeid( *this ).name() ) );
 		printf( "\tXArg: %s\n", deferred_apply_internal::demangle( typeid( std::tuple<XArgsHead, XArgs...> ).name() ) );
 		printf( "\tvalues_: %s\n", deferred_apply_internal::demangle( typeid( values_ ).name() ) );
 #endif

@@ -112,10 +112,11 @@ TEST( Deferred_Apply, move_from_empty_instance )
 	// Assert
 }
 
-TEST( Deferred_Apply, test_printf_with_convert1 )
+TEST( Deferred_Apply, test_apply_printf )
 {
 	// Arrenge
-	auto xx2 = make_deferred_apply( &printf, "l, %d, %s\n", 1, "m" );
+	int  ti  = 2;
+	auto xx2 = make_deferred_apply( &printf, "l, %d, %d, %s\n", 1, ti, "m" );
 
 	// Act
 	xx2.apply();
@@ -135,10 +136,38 @@ TEST( Deferred_Apply, test_printf_with_convert2 )
 	// Assert
 }
 
-TEST( Deferred_Apply_r, test_printf_with_convert1 )
+TEST( Deferred_Apply, test_lreference_to_integlal )
+{
+	// Arrange
+	struct local {
+		static int& t_func( int& arg )
+		{
+			return arg;
+		}
+	};
+	int  test_int_data  = 3;
+	int  test_int_data2 = 5;
+	auto xx             = make_deferred_apply( &local::t_func, test_int_data );
+	int& ret2           = local::t_func( test_int_data2 );
+	EXPECT_EQ( 5, ret2 );
+	ret2 = 6;
+	EXPECT_EQ( 6, test_int_data2 );
+
+	// Act
+	int& ret = xx.apply();
+
+	// Assert
+	static_assert( std::is_same<decltype( xx.apply() ), int&>::value, "ret should be left value reference" );
+	EXPECT_EQ( 3, ret );
+	ret = 4;
+	EXPECT_EQ( 4, test_int_data );
+}
+
+TEST( Deferred_Apply_r, test_apply_printf )
 {
 	// Arrenge
-	auto xx2 = make_deferred_apply_r<uint8_t>( &printf, "l, %d, %s\n", 1, "m" );
+	int  ti  = 2;
+	auto xx2 = make_deferred_apply_r<uint8_t>( &printf, "l, %d, %d, %s\n", 1, ti, "m" );
 
 	// Act
 	xx2.apply();

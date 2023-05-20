@@ -132,7 +132,7 @@ TEST( DeferredApplyingArguments, test_lvalue_pointer_to_const_lvalue )
 	EXPECT_EQ( &test_int_data, ret );
 }
 
-TEST( DeferredApplyingArguments, test_lreference_to_integlal_literal )
+TEST( DeferredApplyingArguments, test_lreference_to_integlal )
 {
 	// Arrange
 	struct local {
@@ -141,25 +141,25 @@ TEST( DeferredApplyingArguments, test_lreference_to_integlal_literal )
 			return arg;
 		}
 	};
-	int  test_int_data = 3;
-	auto xx            = make_deferred_applying_arguments( test_int_data );
+	int  test_int_data  = 3;
+	int  test_int_data2 = 5;
+	auto xx             = make_deferred_applying_arguments( test_int_data );
+	int& ret2           = local::t_func( test_int_data2 );
+	EXPECT_EQ( 5, ret2 );
+	ret2 = 6;
+	EXPECT_EQ( 6, test_int_data2 );
 
 	// Act
-	auto ret = xx.apply( local::t_func );
+	int& ret = xx.apply( local::t_func );
 
 	// Assert
-	// static_assert( std::is_lvalue_reference<decltype( xx.apply( t5_func ) )>::value, "ret should be left value reference" );
-#ifdef DEFERRED_APPLY_DEBUG
-	printf( "local::t_func(): %s\n", deferred_apply_internal::demangle( typeid( local::t_func ).name() ) );
-	printf( "local::t_func(test_int_data): %s\n", deferred_apply_internal::demangle( typeid( decltype( local::t_func( test_int_data ) ) ).name() ) );
-	printf( "xx.apply( local::t_func ): %s\n", deferred_apply_internal::demangle( typeid( decltype( xx.apply( local::t_func ) ) ).name() ) );
-#endif
+	static_assert( std::is_same<decltype( xx.apply( local::t_func ) ), int&>::value, "ret should be left value reference" );
 	EXPECT_EQ( 3, ret );
 	ret = 4;
-	// EXPECT_EQ( 4, test_int_data );
+	EXPECT_EQ( 4, test_int_data );
 }
 
-TEST( DeferredApplyingArguments, test_lreference_to_integlal_literal_const )
+TEST( DeferredApplyingArguments, test_lreference_to_integlal_const )
 {
 	// Arrange
 	struct local {
@@ -172,12 +172,11 @@ TEST( DeferredApplyingArguments, test_lreference_to_integlal_literal_const )
 	auto      xx            = make_deferred_applying_arguments( test_int_data );
 
 	// Act
-	auto ret = xx.apply( local::t_func );
+	const int& ret = xx.apply( local::t_func );
 
 	// Assert
-	EXPECT_EQ( std::type_index( typeid( const int& ) ), std::type_index( typeid( ret ) ) );
-	// static_assert( std::is_lvalue_reference<decltype( xx.apply( t6_func ) )>::value, "ret should be left value reference" );
-	// EXPECT_EQ( &test_int_data, &ret );
+	static_assert( std::is_same<decltype( xx.apply( local::t_func ) ), const int&>::value, "ret should be left value reference" );
+	EXPECT_EQ( &test_int_data, &ret );
 	EXPECT_EQ( test_int_data, ret );
 }
 
