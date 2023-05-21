@@ -298,3 +298,27 @@ TEST( DeferredApplyingArguments, CanCall_apply_functor )
 	EXPECT_EQ( 2, aa.call_counter );
 	EXPECT_STREQ( "test_string", ret );
 }
+
+TEST( DeferredApplyingArguments, CanCall_apply_functor_that_return_void )
+{
+	// Arrange
+	struct local {
+		void operator()( const char* arg )
+		{
+			call_counter++;
+			return;
+		}
+
+		int call_counter = 0;
+	};
+	local aa;
+	auto  xx = make_deferred_applying_arguments( "test_string" );
+
+	// Act
+	xx.apply( aa );
+	xx.apply( aa );
+
+	// Assert
+	static_assert( std::is_same<decltype( xx.apply( aa ) ), void>::value );
+	EXPECT_EQ( 2, aa.call_counter );
+}
