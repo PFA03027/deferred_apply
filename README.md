@@ -30,6 +30,9 @@ On the other hand, unlike `deferred_applying_arguments<...>`, we cannot change t
 Copy deferred_apply.hpp in the inc directory to the folder you want to install.
 Since it is a header file only, copy it and the work is over.
 
+## Requirement
+C++11 or newer C++ standard is required.
+
 ## 関数の実行を延期するために、関数と引数を保持することを目的としたクラス`deferred_apply<R>`とヘルパ関数`make_deferred_apply()`
 
 `deferred_apply<R>`は、引数の一時的な保持と関数適用を延期することを目的としているため、
@@ -55,3 +58,7 @@ apply()のための戻り値の型がテンプレート型である以外は、�
 
 inc ディレクトリいかにある deferred_apply.hpp をインストールしたいフォルダにコピーしてください。
 ヘッダファイルオンリーのため、コピーして作業は終わりです。
+
+## 要件について
+
+C++11以上に対応しています。
