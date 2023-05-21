@@ -68,19 +68,21 @@ using my_make_index_sequence = decltype( internal::S<N> {}.f() );
  * @brief 引数を保持するためのtuple用の型を求めるメタ関数の実装クラス
  */
 struct get_argument_store_type_impl {
-	// 配列型ではなく、かつ左辺値参照の場合に、左辺値参照を型として返す。
+	// 配列型ではなく、かつ右辺値参照の場合、引数の値を保持する必要があるため、参照を外した型を返す。
 	template <typename T>
 	static auto check( T x ) -> typename std::enable_if<
-		std::is_lvalue_reference<T>::value && !std::is_pointer<typename std::decay<T>::type>::value,
-		T>::type;
+		std::is_rvalue_reference<T>::value && !std::is_pointer<typename std::decay<T>::type>::value,
+		typename std::remove_reference<T>::type>::type;
 
 	// 配列型は、関数テンプレートと同じ推測を適用してた型に変換して返す。
 	template <typename T>
-	static auto check( T x ) -> typename std::enable_if<std::is_pointer<typename std::decay<T>::type>::value, typename std::decay<T>::type>::type;
+	static auto check( T x ) -> typename std::enable_if<
+		std::is_pointer<typename std::decay<T>::type>::value,
+		typename std::decay<T>::type>::type;
 
-	// 上記以外は、右辺値参照となる。引数を保持する必要があるため、参照を外した型を返す。
+	// 上記以外は、左辺値参照型となるため、そのまま型を返す。
 	template <typename T>
-	static auto check( ... ) -> typename std::remove_reference<T>::type;
+	static auto check( ... ) -> T;
 };
 
 /**
