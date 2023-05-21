@@ -274,3 +274,27 @@ TEST( DeferredApplyingArguments, different_deferred_applying_arguments )
 
 	// Assert
 }
+
+TEST( DeferredApplyingArguments, CanCall_apply_functor )
+{
+	// Arrange
+	struct local {
+		const char* operator()( const char* arg )
+		{
+			call_counter++;
+			return arg;
+		}
+
+		int call_counter = 0;
+	};
+	local aa;
+	auto  xx = make_deferred_applying_arguments( "test_string" );
+
+	// Act
+	xx.apply( aa );
+	auto ret = xx.apply( aa );
+
+	// Assert
+	EXPECT_EQ( 2, aa.call_counter );
+	EXPECT_STREQ( "test_string", ret );
+}

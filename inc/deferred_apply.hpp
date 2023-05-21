@@ -289,20 +289,16 @@ public:
 	{
 	}
 	deferred_apply_container( deferred_apply_container&& orig )
-	  : functor_( std::move( orig.functor_ ) )
+	  : functor_( std::forward<F>( orig.functor_ ) )
 	  , arguments_keeper_( std::move( orig.arguments_keeper_ ) )
 	{
 	}
 
-	template <typename... XArgs>
-	deferred_apply_container( F& f, XArgs&&... args )
-	  : functor_( f )
-	  , arguments_keeper_( std::forward<XArgs>( args )... )
-	{
-	}
-	template <typename... XArgs>
-	deferred_apply_container( F&& f, XArgs&&... args )
-	  : functor_( std::move( f ) )
+	template <typename XF,
+	          typename... XArgs,
+	          typename std::enable_if<!std::is_same<typename std::remove_reference<XF>::type, deferred_apply_container>::value>::type* = nullptr>
+	deferred_apply_container( XF&& f, XArgs&&... args )
+	  : functor_( std::forward<XF>( f ) )
 	  , arguments_keeper_( std::forward<XArgs>( args )... )
 	{
 	}
@@ -328,6 +324,16 @@ public:
 		return std::unique_ptr<deferred_apply_base<R>>( new deferred_apply_container( *this ) );
 #endif
 	}
+
+#ifdef DEFERRED_APPLY_DEBUG
+	void debug_type_info( void )
+	{
+		printf( "Called constructor of deferred_apply_container\n" );
+		printf( "\tthis class: %s\n", deferred_apply_internal::demangle( typeid( *this ).name() ) );
+		printf( "\targuments_keeper_: %s\n", deferred_apply_internal::demangle( typeid( arguments_keeper_ ).name() ) );
+	}
+
+#endif
 
 private:
 	F                                        functor_;
