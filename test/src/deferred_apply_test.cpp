@@ -263,3 +263,14 @@ TEST( DeferredApplyingArguments, move_constructor )
 	EXPECT_EQ( std::type_index( typeid( const char* ) ), std::type_index( typeid( ret ) ) );
 	EXPECT_STREQ( "test_string", ret );
 }
+
+TEST( DeferredApplyingArguments, different_deferred_applying_arguments )
+{
+	// Arrange
+	// deferred_applying_arguments<double&&> xx = make_deferred_applying_arguments( 2.0 );
+
+	// Act
+	//	deferred_applying_arguments<int&&> yy = make_deferred_applying_arguments( xx );	// Compile error -> OK
+
+	// Assert
+}
