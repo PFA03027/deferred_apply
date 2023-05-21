@@ -132,24 +132,61 @@ struct get_argument_apply_type {
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 /**
+ * @brief Class intended to hold temporary arguments to defer execution of functions
+ *
+ * Example of use:
+ * @code {.cpp}
+ * auto da = make_deferred_applying_arguments( a, b, ... );
+ * // do something, then...
+ * auto ret = da.apply(f);
+ * @endcode
+ *
+ * Execution of f(a,b,...) is delayed until da.apply(f).
+ *
+ * @warning
+ * Whether reapplication of apply() is possible depends on how the arguments are passed or on the properties of f. @n
+ * For example, if a is passed by rvalue reference, the value held in deferred_apply may be invalidated by f due to the first application of apply(). @n
+ * Therefore, it is undefined whether the second apply() application is as intended.
+ *
+ * @warning
+ * Since it is intended for temporary retention, priority is given to efficiency, and lvalue referenced instances are retained as lvalue reference types and are not copied. @n
+ * Similarly, the array type is a method of holding a pointer to the array and not copying it. @n
+ * Instead, a dangling reference can occur at the time the argument is actually referenced. @n
+ * Therefore, instances of this class and their copies should not be brought out of the generated scope. @n
+ * Rvalues and rvalue reference types are moved in order not to lose their values, and retain their values within this class. @n
+ *
+ * @note
+ * You can do the same thing with a lambda capture, but
+ * Since rvalues cannot be placed in the capture part, it is necessary to do it via a variable defined as an lvalue + reference capture.
+ * Therefore, the implementation is quite troublesome.
+ *
  * @brief 関数の実行を延期するために、一時的引数を保持することを目的としたクラス
  *
- * 一時的な保持を目的としているため、左辺値参照されたクラスは参照を保持する方式で、コピーしない。
- * 代わりに、引数を実際に参照する時点でダングリング参照が発生する可能性がある。
- * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。
- *
  * 使用例：
+ * @code {.cpp}
  * auto da = make_deferred_applying_arguments( a, b, ... );
+ * // do something, then...
  * auto ret = da.apply(f);
+ * @endcode
  *
- * da.apply(f)によって、f(a,b,...) が実行される。
+ * da.apply(f)まで、f(a,b,...) の実行が遅延される。
  *
- * apply()の再適用が可能かどうかは、引数をどのように渡したか、あるいはfの特性に依存する。
- * 例えば、aが右辺値参照で引き渡された場合、1回目のapply()の適用によって、deferred_apply内で保持していた値が無効値となっている可能性がある。
+ * @warning
+ * apply()の再適用が可能かどうかは、引数をどのように渡したか、あるいはfの特性に依存する。 @n
+ * 例えば、aが右辺値参照で引き渡された場合、1回目のapply()の適用によって、deferred_apply内で保持していた値が、fによって無効値となっている可能性がある。 @n
+ * そのため、2回目のapply()適用が意図通りとなるかどうかは未定義となる。
+ *
+ * @warning
+ * 一時的な保持を目的としているため、効率を優先し、左辺値参照されたインスタンスは左辺値参照型を保持する方式で、コピーしない。 @n
+ * 配列型も同様に、配列へのポインタを保持する方式で、コピーしない。 @n
+ * 代わりに、引数を実際に参照する時点でダングリング参照が発生する可能性がある。 @n
+ * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。 @n
+ * 右辺値や右辺値参照型は、値を失わないためにムーブし、本クラス内で値を保持する。 @n
  *
  * @note
  * ラムダ式のキャプチャを使うことでも同等のことが可能だが、
- * キャプチャ部分には右辺値を置けないため、左辺値として定義した変数＋参照キャプチャ経由で行う必要があるためかなり面倒。
+ * キャプチャ部分には右辺値を置けないため、左辺値として定義した変数＋参照キャプチャ経由で行う必要がある。
+ * そのため、実装がかなり面倒。
  *
  */
 template <typename... OrigArgs>
@@ -300,23 +337,73 @@ private:
 }   // namespace deferred_apply_internal
 
 /**
- * @brief 関数の実行を延期するために、関数と引数を保持することを目的としたクラス
+ * @brief Class intended to hold temporary arguments to defer execution of functions
  *
- * 一時的な保持を目的としているため、左辺値参照されたクラスは参照を保持する方式で、コピーしない。
- * 代わりに、引数を実際に参照する時点でダングリング参照が発生する可能性がある。
- * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。
+ * Example of use:
+ * @code {.cpp}
+ * auto da = make_deferred_apply( f, a, b, ... );
+ * // do something, then...
+ * auto ret = da.apply();
+ * @endcode
+ *
+ * @code {.cpp}
+ * deferred_apply<R> da = make_deferred_apply_r<R>( f, a, b, ... );
+ * // do something, then...
+ * R ret = da.apply();
+ * @endcode
+ *
+ * Execution of f(a,b,...) is delayed until da.apply().
+ *
+ * Unlike deferred_applying_arguments<>, only the return type for apply() is a template argument.
+ * Therefore, it becomes easy to use it as a member variable of a class.
+ * On the other hand, we cannot change the dynamically applied function f.
+ *
+ * @warning
+ * Whether reapplication of apply() is possible depends on how the arguments are passed or on the properties of f. @n
+ * For example, if a is passed by rvalue reference, the value held in deferred_apply may be invalidated by f due to the first application of apply(). @n
+ * Therefore, it is undefined whether the second apply() application is as intended.
+ *
+ * @warning
+ * Since it is intended for temporary retention, priority is given to efficiency, and lvalue referenced instances are retained as lvalue reference types and are not copied. @n
+ * Similarly, the array type is a method of holding a pointer to the array and not copying it. @n
+ * Instead, a dangling reference can occur at the time the argument is actually referenced. @n
+ * Therefore, instances of this class and their copies should not be brought out of the generated scope. @n
+ * Rvalues and rvalue reference types are moved in order not to lose their values, and retain their values within this class. @n
+ *
+ * @tparam R member function apply() return type
+ *
+ * @brief 関数の実行を延期するために、一時的引数を保持することを目的としたクラス
  *
  * 使用例：
+ * @code {.cpp}
  * auto da = make_deferred_apply( f, a, b, ... );
+ * // do something, then...
  * auto ret = da.apply();
+ * @endcode
  *
- * da.apply(f)によって、f(a,b,...) が実行される。
+ * @code {.cpp}
+ * deferred_apply<R> da = make_deferred_apply_r<R>( f, a, b, ... );
+ * // do something, then...
+ * R ret = da.apply();
+ * @endcode
  *
- * apply()の再適用が可能かどうかは、引数をどのように渡したか、あるいはfの特性に依存する。
- * 例えば、aが右辺値参照で引き渡された場合、1回目のapply()の適用によって、deferred_apply内で保持していた値が無効値となっている可能性がある。
+ * da.apply()まで、f(a,b,...) の実行が遅延される。
  *
- * apply()のための戻り値の型がテンプレート型である以外は、型情報が隠されているため、メンバ変数定義も容易になる。
- * 一方で、deferred_applying_arguments<>とは異なり、動的に適用する関数fを変更することはできない。
+ * deferred_applying_arguments<>とは異なり、apply()のための戻り値の型だけがテンプレート引数となる。
+ * そのため、クラスのメンバ変数として使用することも容易になる。
+ * 一方で、動的に適用する関数fを変更することはできない。
+ *
+ * @warning
+ * apply()の再適用が可能かどうかは、引数をどのように渡したか、あるいはfの特性に依存する。 @n
+ * 例えば、aが右辺値参照で引き渡された場合、1回目のapply()の適用によって、deferred_apply内で保持していた値が、fによって無効値となっている可能性がある。 @n
+ * そのため、2回目のapply()適用が意図通りとなるかどうかは未定義となる。
+ *
+ * @warning
+ * 一時的な保持を目的としているため、効率を優先し、左辺値参照されたインスタンスは左辺値参照型を保持する方式で、コピーしない。 @n
+ * 配列型も同様に、配列へのポインタを保持する方式で、コピーしない。 @n
+ * 代わりに、引数を実際に参照する時点でダングリング参照が発生する可能性がある。 @n
+ * よって、本クラスのインスタンスやそのコピーを、生成したスコープの外に持ち出してはならない。 @n
+ * 右辺値や右辺値参照型は、値を失わないためにムーブし、本クラス内で値を保持する。 @n
  *
  * @tparam R メンバ関数apply()の戻り値の型
  */
