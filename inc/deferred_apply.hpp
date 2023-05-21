@@ -223,6 +223,8 @@ auto make_deferred_applying_arguments( Args&&... args ) -> decltype( deferred_ap
 	return deferred_applying_arguments<Args&&...>( std::forward<Args>( args )... );
 }
 
+namespace deferred_apply_internal {
+
 ////////////////////////////////////////////////////////////////////////////////////////////
 template <typename R>
 class deferred_apply_base {
@@ -295,6 +297,8 @@ private:
 	deferred_applying_arguments<OrigArgs...> arguments_keeper_;
 };
 
+}   // namespace deferred_apply_internal
+
 /**
  * @brief 関数の実行を延期するために、関数と引数を保持することを目的としたクラス
  *
@@ -358,7 +362,7 @@ public:
 	  : up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
 	{
-		using cur_container_t = deferred_apply_container<R, F, Args&&...>;
+		using cur_container_t = deferred_apply_internal::deferred_apply_container<R, F, Args&&...>;
 
 		if constexpr ( buff_size < sizeof( cur_container_t ) ) {   // 本来は、C++17から導入されたif constexpr構文を使用するのがあるべき姿
 			up_cntner_ = std::make_unique<cur_container_t>( std::forward<F>( f ), std::forward<Args>( args )... );
@@ -370,12 +374,12 @@ public:
 #else   // __cpp_if_constexpr
 	template <typename F,
 	          typename... Args,
-	          typename std::enable_if<!std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value && ( buff_size < sizeof( deferred_apply_container<R, typename std::remove_reference<F>::type, Args...> ) )>::type* = nullptr>
+	          typename std::enable_if<!std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value && ( buff_size < sizeof( deferred_apply_internal::deferred_apply_container<R, typename std::remove_reference<F>::type, Args...> ) )>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
 	  : up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
 	{
-		using cur_container_t = deferred_apply_container<R, F, Args&&...>;
+		using cur_container_t = deferred_apply_internal::deferred_apply_container<R, F, Args&&...>;
 
 #if __cpp_lib_make_unique >= 201304
 		up_cntner_            = std::make_unique<cur_container_t>( std::forward<F>( f ), std::forward<Args>( args )... );
@@ -387,12 +391,12 @@ public:
 
 	template <typename F,
 	          typename... Args,
-	          typename std::enable_if<( !std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value ) && ( buff_size >= sizeof( deferred_apply_container<R, typename std::remove_reference<F>::type, Args...> ) )>::type* = nullptr>
+	          typename std::enable_if<( !std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value ) && ( buff_size >= sizeof( deferred_apply_internal::deferred_apply_container<R, typename std::remove_reference<F>::type, Args...> ) )>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
 	  : up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
 	{
-		using cur_container_t = deferred_apply_container<R, F, Args&&...>;
+		using cur_container_t = deferred_apply_internal::deferred_apply_container<R, F, Args&&...>;
 
 		p_cntner_ = new ( placement_new_buffer ) cur_container_t( std::forward<F>( f ), std::forward<Args>( args )... );
 	}
@@ -412,9 +416,9 @@ public:
 	}
 
 private:
-	std::unique_ptr<deferred_apply_base<R>> up_cntner_;
-	deferred_apply_base<R>*                 p_cntner_;
-	char                                    placement_new_buffer[buff_size];
+	std::unique_ptr<deferred_apply_internal::deferred_apply_base<R>> up_cntner_;
+	deferred_apply_internal::deferred_apply_base<R>*                 p_cntner_;
+	char                                                             placement_new_buffer[buff_size];
 };
 
 /**
