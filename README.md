@@ -25,6 +25,11 @@ For example, if a is passed by rvalue reference, the value held in `deferred_app
 Except that the return type for `apply()` is a template type, the type information is hidden, making it easier to define member variables.
 On the other hand, unlike `deferred_applying_arguments<...>`, we cannot change the dynamically applied function f.
 
+## How to install
+
+Copy deferred_apply.hpp in the inc directory to the folder you want to install.
+Since it is a header file only, copy it and the work is over.
+
 ## 関数の実行を延期するために、関数と引数を保持することを目的としたクラス`deferred_apply<R>`とヘルパ関数`make_deferred_apply()`
 
 `deferred_apply<R>`は、引数の一時的な保持と関数適用を延期することを目的としているため、
@@ -45,3 +50,8 @@ apply()の再適用が可能かどうかは、引数をどのように渡した�
 
 apply()のための戻り値の型がテンプレート型である以外は、型情報が隠されているため、メンバ変数定義も容易になる。
 一方で、deferred_applying_arguments<...>とは異なり、動的に適用する関数fを変更することはできない。
+
+## インストール方法
+
+inc ディレクトリいかにある deferred_apply.hpp をインストールしたいフォルダにコピーしてください。
+ヘッダファイルオンリーのため、コピーして作業は終わりです。
