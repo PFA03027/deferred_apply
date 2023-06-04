@@ -192,6 +192,10 @@ struct get_argument_apply_type {
 template <typename... OrigArgs>
 class deferred_applying_arguments {
 public:
+	deferred_applying_arguments( void )
+	  : values_()
+	{
+	}
 	deferred_applying_arguments( const deferred_applying_arguments& orig )
 	  : values_( orig.values_ )
 	{
@@ -199,6 +203,16 @@ public:
 	deferred_applying_arguments( deferred_applying_arguments&& orig )
 	  : values_( std::move( orig.values_ ) )
 	{
+	}
+	deferred_applying_arguments& operator=( const deferred_applying_arguments& orig )
+	{
+		values_ = orig.values_;
+		return *this;
+	}
+	deferred_applying_arguments& operator=( deferred_applying_arguments&& orig )
+	{
+		values_ = std::move( orig.values_ );
+		return *this;
 	}
 
 	template <typename XArgsHead,
@@ -418,33 +432,42 @@ class deferred_apply {
 	constexpr static size_t buff_size = 128;
 
 public:
+	deferred_apply( void )
+	  : applying_count_( 0 )
+	  , up_cntner_( nullptr )
+	  , p_cntner_( nullptr )
+	{
+	}
 	deferred_apply( const deferred_apply& orig )
-	  : up_cntner_( nullptr )
+	  : applying_count_( orig.applying_count_ )
+	  , up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
 	{
 		if ( orig.up_cntner_ != nullptr ) {
 			up_cntner_ = orig.up_cntner_->make_copy_clone();
 			p_cntner_  = up_cntner_.get();
-		} else {
+		} else if ( orig.p_cntner_ != nullptr ) {
 			p_cntner_ = orig.p_cntner_->placement_new_copy( placement_new_buffer );
+		} else {
+			// orig is empty object. Therefore, nothing to do
 		}
-		return;
 	}
 	deferred_apply( deferred_apply&& orig )
-	  : up_cntner_( std::move( orig.up_cntner_ ) )
+	  : applying_count_( orig.applying_count_ )
+	  , up_cntner_( std::move( orig.up_cntner_ ) )
 	  , p_cntner_( nullptr )
 	{
 		if ( up_cntner_ != nullptr ) {
 			p_cntner_      = up_cntner_.get();
 			orig.p_cntner_ = nullptr;
-		} else if ( orig.p_cntner_ == nullptr ) {
-			// orig is empty. Therefore, nothing to do
-		} else {
+		} else if ( orig.p_cntner_ != nullptr ) {
 			p_cntner_ = orig.p_cntner_->placement_new_move( placement_new_buffer );
 			orig.p_cntner_->~deferred_apply_base();
 			orig.p_cntner_ = nullptr;
+		} else {
+			// orig is empty object. Therefore, nothing to do
 		}
-		return;
+		orig.applying_count_ = 0;
 	}
 
 #if __cpp_if_constexpr >= 201606
@@ -452,12 +475,13 @@ public:
 	          typename... Args,
 	          typename std::enable_if<!std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
-	  : up_cntner_( nullptr )
+	  : applying_count_( 0 )
+	  , up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
 	{
 		using cur_container_t = deferred_apply_internal::deferred_apply_container<R, F, Args&&...>;
 
-		if constexpr ( buff_size < sizeof( cur_container_t ) ) {   // 本来は、C++17から導入されたif constexpr構文を使用するのがあるべき姿
+		if constexpr ( buff_size < sizeof( cur_container_t ) ) {   // C++17から導入されたif constexpr構文。C++11とC++14はSFINEで実装
 			up_cntner_ = std::make_unique<cur_container_t>( std::forward<F>( f ), std::forward<Args>( args )... );
 			p_cntner_  = up_cntner_.get();
 		} else {
@@ -469,7 +493,8 @@ public:
 	          typename... Args,
 	          typename std::enable_if<!std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value && ( buff_size < sizeof( deferred_apply_internal::deferred_apply_container<R, typename std::remove_reference<F>::type, Args...> ) )>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
-	  : up_cntner_( nullptr )
+	  : applying_count_( 0 )
+	  , up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
 	{
 		using cur_container_t = deferred_apply_internal::deferred_apply_container<R, F, Args&&...>;
@@ -486,7 +511,8 @@ public:
 	          typename... Args,
 	          typename std::enable_if<( !std::is_same<typename std::remove_reference<F>::type, deferred_apply>::value ) && ( buff_size >= sizeof( deferred_apply_internal::deferred_apply_container<R, typename std::remove_reference<F>::type, Args...> ) )>::type* = nullptr>
 	deferred_apply( F&& f, Args&&... args )
-	  : up_cntner_( nullptr )
+	  : applying_count_( 0 )
+	  , up_cntner_( nullptr )
 	  , p_cntner_( nullptr )
 	{
 		using cur_container_t = deferred_apply_internal::deferred_apply_container<R, F, Args&&...>;
@@ -494,6 +520,63 @@ public:
 		p_cntner_ = new ( placement_new_buffer ) cur_container_t( std::forward<F>( f ), std::forward<Args>( args )... );
 	}
 #endif   // __cpp_if_constexpr
+
+	deferred_apply& operator=( const deferred_apply& orig )
+	{
+		// discard this
+		if ( up_cntner_ != nullptr ) {
+			up_cntner_.reset();
+			p_cntner_ = nullptr;
+		} else if ( p_cntner_ != nullptr ) {
+			p_cntner_->~deferred_apply_base();
+			p_cntner_ = nullptr;
+		} else {
+			// this object is empty object. Therefore, nothing to do
+		}
+
+		// copy to this
+		if ( orig.up_cntner_ != nullptr ) {
+			up_cntner_ = orig.up_cntner_->make_copy_clone();
+			p_cntner_  = up_cntner_.get();
+		} else if ( orig.p_cntner_ != nullptr ) {
+			p_cntner_ = orig.p_cntner_->placement_new_copy( placement_new_buffer );
+		} else {
+			// orig is empty object. Therefore, nothing to do
+		}
+		applying_count_ = orig.applying_count_;
+
+		return *this;
+	}
+	deferred_apply& operator=( deferred_apply&& orig )
+	{
+		// discard this
+		if ( up_cntner_ != nullptr ) {
+			up_cntner_.reset();
+			p_cntner_ = nullptr;
+		} else if ( p_cntner_ != nullptr ) {
+			p_cntner_->~deferred_apply_base();
+			p_cntner_ = nullptr;
+		} else {
+			// this object is empty object. Therefore, nothing to do
+		}
+
+		// move orig to this
+		if ( orig.up_cntner_ != nullptr ) {
+			up_cntner_     = std::move( orig.up_cntner_ );
+			p_cntner_      = up_cntner_.get();
+			orig.p_cntner_ = nullptr;
+		} else if ( orig.p_cntner_ != nullptr ) {
+			p_cntner_ = orig.p_cntner_->placement_new_move( placement_new_buffer );
+			orig.p_cntner_->~deferred_apply_base();
+			orig.p_cntner_ = nullptr;
+		} else {
+			// orig is empty object. Therefore, nothing to do
+		}
+		applying_count_      = orig.applying_count_;
+		orig.applying_count_ = 0;
+
+		return *this;
+	}
 
 	~deferred_apply()
 	{
@@ -505,10 +588,22 @@ public:
 
 	R apply( void )
 	{
+		applying_count_++;
 		return p_cntner_->apply_func();
 	}
 
+	int number_of_times_applied( void ) const
+	{
+		return applying_count_;
+	}
+
+	bool valid( void ) const
+	{
+		return ( p_cntner_ != nullptr );
+	}
+
 private:
+	int                                                              applying_count_;
 	std::unique_ptr<deferred_apply_internal::deferred_apply_base<R>> up_cntner_;
 	deferred_apply_internal::deferred_apply_base<R>*                 p_cntner_;
 	char                                                             placement_new_buffer[buff_size];

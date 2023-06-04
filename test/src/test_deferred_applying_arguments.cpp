@@ -18,6 +18,57 @@
 
 #include "gtest/gtest.h"
 
+TEST( DeferredApplyingArguments, Do_default_constructor )
+{
+	// Arrange
+	auto xx = make_deferred_applying_arguments();
+
+	// Act
+	xx.apply( []() {} );
+
+	// Assert
+}
+
+TEST( DeferredApplyingArguments, Do_copy_assigner )
+{
+	// Arrange
+	struct local {
+		static int t_func( int arg )
+		{
+			return arg;
+		}
+	};
+	auto           xx = make_deferred_applying_arguments( 1 );
+	decltype( xx ) sut;
+
+	// Act
+	sut      = xx;
+	auto ret = sut.apply( local::t_func );
+
+	// Assert
+	EXPECT_EQ( 1, ret );
+}
+
+TEST( DeferredApplyingArguments, Do_move_assigner )
+{
+	// Arrange
+	struct local {
+		static int t_func( int arg )
+		{
+			return arg;
+		}
+	};
+	auto           xx = make_deferred_applying_arguments( 1 );
+	decltype( xx ) sut;
+
+	// Act
+	sut      = std::move( xx );
+	auto ret = sut.apply( local::t_func );
+
+	// Assert
+	EXPECT_EQ( 1, ret );
+}
+
 TEST( DeferredApplyingArguments, test_integlal_literal )
 {
 	// Arrange

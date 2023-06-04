@@ -99,17 +99,189 @@ private:
 	}
 };
 
-TEST( Deferred_Apply, move_from_empty_instance )
+TEST( Deferred_Apply, Do_default_constructor )
+{
+	// Arrange
+
+	// Act
+	deferred_apply<void> sut;
+
+	// Assert
+	EXPECT_FALSE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply, copy_constructor_from_empty_instance )
+{
+	// Arrenge
+	deferred_apply<int> sut_empty;
+	EXPECT_FALSE( sut_empty.valid() );
+	EXPECT_EQ( 0, sut_empty.number_of_times_applied() );
+
+	// Act
+	auto sut = sut_empty;
+
+	// Assert
+	EXPECT_FALSE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply, copy_constructor )
 {
 	// Arrenge
 	auto xx1 = make_deferred_apply( &printf, "l, %d, %s\n", 1, "m" );
-	auto xx2 = std::move( xx1 );
-	auto xx3 = std::move( xx1 );
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 0, xx1.number_of_times_applied() );
 
 	// Act
-	// xx2.apply();
+	auto xx2 = xx1;
 
 	// Assert
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 0, xx1.number_of_times_applied() );
+	EXPECT_TRUE( xx2.valid() );
+	EXPECT_EQ( 0, xx2.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply, move_constructor_from_empty_instance )
+{
+	// Arrenge
+	deferred_apply<int> sut_empty;
+	EXPECT_FALSE( sut_empty.valid() );
+	EXPECT_EQ( 0, sut_empty.number_of_times_applied() );
+
+	// Act
+	auto sut = std::move( sut_empty );
+
+	// Assert
+	EXPECT_FALSE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply, move_constructor )
+{
+	// Arrenge
+	auto xx1 = make_deferred_apply( &printf, "l, %d, %s\n", 1, "m" );
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 0, xx1.number_of_times_applied() );
+
+	// Act
+	auto xx2 = std::move( xx1 );
+
+	// Assert
+	EXPECT_FALSE( xx1.valid() );
+	EXPECT_EQ( 0, xx1.number_of_times_applied() );
+	EXPECT_TRUE( xx2.valid() );
+	EXPECT_EQ( 0, xx2.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply, copy_assigner_from_empty_instance )
+{
+	// Arrenge
+	deferred_apply<int> sut_empty;
+	EXPECT_FALSE( sut_empty.valid() );
+	EXPECT_EQ( 0, sut_empty.number_of_times_applied() );
+	deferred_apply<int> sut = make_deferred_apply( &printf, "l, %d, %s\n", 1, "m" );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+
+	// Act
+	sut = sut_empty;
+
+	// Assert
+	EXPECT_FALSE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+	EXPECT_FALSE( sut_empty.valid() );
+	EXPECT_EQ( 0, sut_empty.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply, copy_assigner )
+{
+	// Arrenge
+	deferred_apply<int> xx1 = make_deferred_apply( &printf, "l, %d, %s\n", 1, "m" );
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 0, xx1.number_of_times_applied() );
+	deferred_apply<int> sut = make_deferred_apply( &printf, "l, %d, %s, %f\n", 1, "m", 3.14 );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+	int test_val = sut.apply();
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 1, sut.number_of_times_applied() );
+
+	// Act
+	sut = xx1;
+
+	// Assert
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 0, xx1.number_of_times_applied() );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+
+	int tested_applyed_val = xx1.apply();
+	EXPECT_NE( test_val, tested_applyed_val );
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 1, xx1.number_of_times_applied() );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+
+	int tested_applyed_val2 = sut.apply();
+	EXPECT_NE( test_val, tested_applyed_val2 );
+	EXPECT_EQ( tested_applyed_val, tested_applyed_val2 );
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 1, xx1.number_of_times_applied() );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 1, sut.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply, move_assigner_from_empty_instance )
+{
+	// Arrenge
+	deferred_apply<int> sut_empty;
+	EXPECT_FALSE( sut_empty.valid() );
+	EXPECT_EQ( 0, sut_empty.number_of_times_applied() );
+	deferred_apply<int> sut = make_deferred_apply( &printf, "l, %d, %s, %f\n", 1, "m", 3.14 );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+	sut.apply();
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 1, sut.number_of_times_applied() );
+
+	// Act
+	sut = std::move( sut_empty );
+
+	// Assert
+	EXPECT_FALSE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply, move_assigner )
+{
+	// Arrenge
+	deferred_apply<int> xx1 = make_deferred_apply( &printf, "l, %d, %s\n", 1, "m" );
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 0, xx1.number_of_times_applied() );
+	int test_val = xx1.apply();
+	EXPECT_TRUE( xx1.valid() );
+	EXPECT_EQ( 1, xx1.number_of_times_applied() );
+
+	deferred_apply<int> sut = make_deferred_apply( &printf, "l, %d, %s, %f\n", 1, "m", 3.14 );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 0, sut.number_of_times_applied() );
+	sut.apply();
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 1, sut.number_of_times_applied() );
+
+	// Act
+	sut = std::move( xx1 );
+
+	// Assert
+	EXPECT_FALSE( xx1.valid() );
+	EXPECT_EQ( 0, xx1.number_of_times_applied() );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 1, sut.number_of_times_applied() );
+	EXPECT_EQ( test_val, sut.apply() );
+	EXPECT_TRUE( sut.valid() );
+	EXPECT_EQ( 2, sut.number_of_times_applied() );
 }
 
 TEST( Deferred_Apply, test_apply_printf )
@@ -122,6 +294,8 @@ TEST( Deferred_Apply, test_apply_printf )
 	xx2.apply();
 
 	// Assert
+	EXPECT_TRUE( xx2.valid() );
+	EXPECT_EQ( 1, xx2.number_of_times_applied() );
 }
 
 TEST( Deferred_Apply, test_printf_with_convert2 )
@@ -134,6 +308,8 @@ TEST( Deferred_Apply, test_printf_with_convert2 )
 	xx3.apply();
 
 	// Assert
+	EXPECT_TRUE( xx3.valid() );
+	EXPECT_EQ( 1, xx3.number_of_times_applied() );
 }
 
 TEST( Deferred_Apply, test_lreference_to_integlal )
@@ -173,6 +349,8 @@ TEST( Deferred_Apply_r, test_apply_printf )
 	xx2.apply();
 
 	// Assert
+	EXPECT_TRUE( xx2.valid() );
+	EXPECT_EQ( 1, xx2.number_of_times_applied() );
 }
 
 TEST( Deferred_Apply_r, test_printf_with_convert2 )
@@ -185,6 +363,8 @@ TEST( Deferred_Apply_r, test_printf_with_convert2 )
 	xx3.apply();
 
 	// Assert
+	EXPECT_TRUE( xx3.valid() );
+	EXPECT_EQ( 1, xx3.number_of_times_applied() );
 }
 
 TEST( Deferred_Apply_r, copy_constructor )
@@ -192,25 +372,56 @@ TEST( Deferred_Apply_r, copy_constructor )
 	// Arrenge
 	testA aa {};
 	auto  xx3 = make_deferred_apply_r<uint8_t>( printf_with_convert(), "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
-	auto  xx4 = xx3;
+	EXPECT_TRUE( xx3.valid() );
+	EXPECT_EQ( 0, xx3.number_of_times_applied() );
 
 	// Act
+	auto xx4 = xx3;
 	xx4.apply();
 
 	// Assert
+	EXPECT_TRUE( xx3.valid() );
+	EXPECT_EQ( 0, xx3.number_of_times_applied() );
+	EXPECT_TRUE( xx4.valid() );
+	EXPECT_EQ( 1, xx4.number_of_times_applied() );
 }
 
-TEST( Deferred_Apply_r, move_constructor )
+TEST( Deferred_Apply_r, move_constructor1 )
 {
 	// Arrenge
 	testA aa {};
 	auto  xx3 = make_deferred_apply_r<uint8_t>( printf_with_convert(), "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
-	auto  xx4 = std::move( xx3 );
+	EXPECT_TRUE( xx3.valid() );
+	EXPECT_EQ( 0, xx3.number_of_times_applied() );
 
 	// Act
+	auto xx4 = std::move( xx3 );
 	xx4.apply();
 
 	// Assert
+	EXPECT_FALSE( xx3.valid() );
+	EXPECT_EQ( 0, xx3.number_of_times_applied() );
+	EXPECT_TRUE( xx4.valid() );
+	EXPECT_EQ( 1, xx4.number_of_times_applied() );
+}
+
+TEST( Deferred_Apply_r, move_constructor2 )
+{
+	// Arrenge
+	testA aa {};
+	auto  xx3 = make_deferred_apply_r<uint8_t>( printf_with_convert(), "n, %d, %s, %s, %s\n", 1, aa, testA {}, "o" );
+	xx3.apply();
+	EXPECT_TRUE( xx3.valid() );
+	EXPECT_EQ( 1, xx3.number_of_times_applied() );
+
+	// Act
+	auto xx4 = std::move( xx3 );
+
+	// Assert
+	EXPECT_FALSE( xx3.valid() );
+	EXPECT_EQ( 0, xx3.number_of_times_applied() );
+	EXPECT_TRUE( xx4.valid() );
+	EXPECT_EQ( 1, xx4.number_of_times_applied() );
 }
 
 class void_functor {
@@ -272,8 +483,180 @@ TEST( Deferred_Apply_r, big_arguments )
 
 	// Act
 	xx3.apply();
-	auto xx4 = xx3;
-	auto xx5 = std::move( xx3 );
+	auto xx4 = xx3;                // copy constructor
+	auto xx5 = std::move( xx3 );   // move constructor
+	xx4.apply();
+	xx5.apply();
+
+	// Assert
+}
+
+TEST( Deferred_Apply_r, big_arguments_copy_move_assigner1 )
+{
+	// Arrenge
+	testA                aa {};
+	deferred_apply<void> xx4;
+	deferred_apply<void> xx5;
+	deferred_apply<void> xx3 = make_deferred_apply_r<void>(
+		void_functor(),
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		0,
+		11,
+		12,
+		13,
+		14,
+		15,
+		16,
+		17,
+		18,
+		19,
+		20,
+		21,
+		22,
+		23,
+		24,
+		25,
+		26,
+		27,
+		28,
+		29,
+		30,
+		31,
+		32,
+		33 );
+
+	// Act
+	xx3.apply();
+	xx4 = xx3;                // copy assigner
+	xx5 = std::move( xx3 );   // move assigner
+	xx4.apply();
+	xx5.apply();
+
+	// Assert
+}
+
+TEST( Deferred_Apply_r, big_arguments_copy_move_assigner2 )
+{
+	// Arrenge
+	testA                aa {};
+	deferred_apply<void> xx5 = make_deferred_apply_r<void>(
+		void_functor(),
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		0,
+		11,
+		12,
+		13,
+		14,
+		15,
+		16,
+		17,
+		18,
+		19,
+		20,
+		21,
+		22,
+		23,
+		24,
+		25,
+		26,
+		27,
+		28,
+		29,
+		30,
+		31,
+		32,
+		33 );
+	deferred_apply<void> xx4 = make_deferred_apply_r<void>(
+		void_functor(),
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		0,
+		11,
+		12,
+		13,
+		14,
+		15,
+		16,
+		17,
+		18,
+		19,
+		20,
+		21,
+		22,
+		23,
+		24,
+		25,
+		26,
+		27,
+		28,
+		29,
+		30,
+		31,
+		32,
+		33 );
+	deferred_apply<void> xx3 = make_deferred_apply_r<void>(
+		void_functor(),
+		1,
+		2,
+		3,
+		4,
+		5,
+		6,
+		7,
+		8,
+		9,
+		0,
+		11,
+		12,
+		13,
+		14,
+		15,
+		16,
+		17,
+		18,
+		19,
+		20,
+		21,
+		22,
+		23,
+		24,
+		25,
+		26,
+		27,
+		28,
+		29,
+		30,
+		31,
+		32,
+		33 );
+
+	// Act
+	xx3.apply();
+	xx4 = xx3;                // copy assigner
+	xx5 = std::move( xx3 );   // move assigner
 	xx4.apply();
 	xx5.apply();
 
