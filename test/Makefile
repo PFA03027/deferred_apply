@@ -5,7 +5,8 @@
 BUILDTYPE=Release
 BUILDTARGET=common
 
-JOBS=$(shell grep cpu.cores /proc/cpuinfo | sort -u | sed 's/[^0-9]//g')
+PROCESSORS=$(shell grep processor /proc/cpuinfo|wc -l)
+JOBS=$(shell expr $(PROCESSORS) - $(PROCESSORS) / 4 )
 
 cmake_configure:
 	set -e; mkdir -p build; cd build; cmake -DCMAKE_BUILD_TYPE=${BUILDTYPE} -DBUILD_TARGET=${BUILDTARGET} -G "Unix Makefiles" ../
