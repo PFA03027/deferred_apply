@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <iostream>
+#include <typeindex>
 
 #include "deferred_apply.hpp"
 
@@ -174,6 +175,31 @@ TEST( Deferred_Apply, move_constructor )
 	EXPECT_TRUE( xx2.valid() );
 	EXPECT_EQ( 0, xx2.number_of_times_applied() );
 }
+#if 0
+TEST( Deferred_Apply, Do_move_constructor_with_move_only_parameter )
+{
+	// Arrange
+	struct local {
+		static std::unique_ptr<int> t_func( std::unique_ptr<int> arg )
+		{
+			return arg;
+		}
+	};
+	std::unique_ptr<int> up_data = std::unique_ptr<int>( new int( 5 ) );
+	int*                 p_addr  = up_data.get();
+	auto                 xx      = make_deferred_apply( &local::t_func, std::move( up_data ) );
+
+	// Act
+	// auto sut = std::move( xx );
+	// // decltype( xx ) sut = std::move( xx );
+	// auto ret = sut.apply();
+
+	// // Assert
+	// EXPECT_EQ( std::type_index( typeid( up_data ) ), std::type_index( typeid( ret ) ) );
+	// EXPECT_EQ( p_addr, ret.get() );
+	// EXPECT_EQ( 5, ( *ret ) );
+}
+#endif
 
 TEST( Deferred_Apply, copy_assigner_from_empty_instance )
 {

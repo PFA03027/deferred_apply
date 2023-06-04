@@ -29,6 +29,29 @@ TEST( DeferredApplyingArguments, Do_default_constructor )
 	// Assert
 }
 
+TEST( DeferredApplyingArguments, Do_move_constructor_with_move_only_parameter )
+{
+	// Arrange
+	struct local {
+		static std::unique_ptr<int> t_func( std::unique_ptr<int> arg )
+		{
+			return arg;
+		}
+	};
+	std::unique_ptr<int> up_data = std::unique_ptr<int>( new int( 5 ) );
+	int*                 p_addr  = up_data.get();
+	auto                 xx      = make_deferred_applying_arguments( std::move( up_data ) );
+
+	// Act
+	auto sut = std::move( xx );
+	auto ret = sut.apply( local::t_func );
+
+	// Assert
+	EXPECT_EQ( std::type_index( typeid( up_data ) ), std::type_index( typeid( ret ) ) );
+	EXPECT_EQ( p_addr, ret.get() );
+	EXPECT_EQ( 5, ( *ret ) );
+}
+
 TEST( DeferredApplyingArguments, Do_copy_assigner )
 {
 	// Arrange
@@ -67,6 +90,31 @@ TEST( DeferredApplyingArguments, Do_move_assigner )
 
 	// Assert
 	EXPECT_EQ( 1, ret );
+}
+
+TEST( DeferredApplyingArguments, Do_move_assigner_with_move_only_parameter )
+{
+	// Arrange
+	struct local {
+		static std::unique_ptr<int> t_func( std::unique_ptr<int> arg )
+		{
+			return arg;
+		}
+	};
+	std::unique_ptr<int> up_data = std::unique_ptr<int>( new int( 5 ) );
+	int*                 p_addr  = up_data.get();
+	auto                 xx      = make_deferred_applying_arguments( std::move( up_data ) );
+	decltype( xx )       sut;
+
+	// Act
+	sut = std::move( xx );
+	// sut      = xx;	// because copy assigner is deleted, so compile error
+	auto ret = sut.apply( local::t_func );
+
+	// Assert
+	EXPECT_EQ( std::type_index( typeid( up_data ) ), std::type_index( typeid( ret ) ) );
+	EXPECT_EQ( p_addr, ret.get() );
+	EXPECT_EQ( 5, ( *ret ) );
 }
 
 TEST( DeferredApplyingArguments, test_integlal_literal )
