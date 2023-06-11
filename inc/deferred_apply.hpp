@@ -297,16 +297,10 @@ public:
 template <typename R, typename F, typename... OrigArgs>
 class deferred_apply_container : public deferred_apply_base<R> {
 public:
-	deferred_apply_container( const deferred_apply_container& orig )
-	  : functor_( orig.functor_ )
-	  , arguments_keeper_( orig.arguments_keeper_ )
-	{
-	}
-	deferred_apply_container( deferred_apply_container&& orig )
-	  : functor_( std::forward<F>( orig.functor_ ) )
-	  , arguments_keeper_( std::move( orig.arguments_keeper_ ) )
-	{
-	}
+	using funct_t                            = F;
+	using argkeeper_t                        = deferred_applying_arguments<OrigArgs...>;
+	static constexpr bool copy_constructible = std::is_copy_constructible<funct_t>::value && std::is_copy_constructible<argkeeper_t>::value;
+	static constexpr bool move_constructible = std::is_move_constructible<funct_t>::value && std::is_move_constructible<argkeeper_t>::value;
 
 	template <typename XF,
 	          typename... XArgs,
@@ -324,19 +318,15 @@ public:
 
 	deferred_apply_base<R>* placement_new_copy( void* ptr ) override
 	{
-		return new ( ptr ) deferred_apply_container( *this );
+		return placement_new_copy_impl( ptr );
 	}
 	deferred_apply_base<R>* placement_new_move( void* ptr ) override
 	{
-		return new ( ptr ) deferred_apply_container( std::move( *this ) );
+		return placement_new_move_impl( ptr );
 	}
 	std::unique_ptr<deferred_apply_base<R>> make_copy_clone( void ) override
 	{
-#if __cpp_lib_make_unique >= 201304
-		return std::make_unique<deferred_apply_container>( *this );
-#else
-		return std::unique_ptr<deferred_apply_base<R>>( new deferred_apply_container( *this ) );
-#endif
+		return make_copy_clone_impl();
 	}
 
 #ifdef DEFERRED_APPLY_DEBUG
@@ -349,9 +339,57 @@ public:
 
 #endif
 
+	deferred_apply_container( const deferred_apply_container& orig )
+	  : functor_( orig.functor_ )
+	  , arguments_keeper_( orig.arguments_keeper_ )
+	{
+	}
+	deferred_apply_container( deferred_apply_container&& orig )
+	  : functor_( std::forward<F>( orig.functor_ ) )
+	  , arguments_keeper_( std::move( orig.arguments_keeper_ ) )
+	{
+	}
+
 private:
-	F                                        functor_;
-	deferred_applying_arguments<OrigArgs...> arguments_keeper_;
+	template <bool IsCopyConstractable = copy_constructible, typename std::enable_if<IsCopyConstractable>::type* = nullptr>
+	std::unique_ptr<deferred_apply_base<R>> make_copy_clone_impl( void )
+	{
+#if __cpp_lib_make_unique >= 201304
+		return std::make_unique<deferred_apply_container>( *this );
+#else
+		return std::unique_ptr<deferred_apply_base<R>>( new deferred_apply_container( *this ) );
+#endif
+	}
+	template <bool IsCopyConstractable = copy_constructible, typename std::enable_if<!IsCopyConstractable>::type* = nullptr>
+	std::unique_ptr<deferred_apply_base<R>> make_copy_clone_impl( void )
+	{
+		throw( std::bad_alloc( "there is no copy constructor" ) );
+	}
+
+	template <bool IsCopyConstractable = copy_constructible, typename std::enable_if<IsCopyConstractable>::type* = nullptr>
+	deferred_apply_base<R>* placement_new_copy_impl( void* ptr )
+	{
+		return new ( ptr ) deferred_apply_container( *this );
+	}
+	template <bool IsCopyConstractable = copy_constructible, typename std::enable_if<!IsCopyConstractable>::type* = nullptr>
+	deferred_apply_base<R>* placement_new_copy_impl( void* ptr )
+	{
+		throw( std::bad_alloc() );
+	}
+
+	template <bool IsMoveConstractable = move_constructible, typename std::enable_if<IsMoveConstractable>::type* = nullptr>
+	deferred_apply_base<R>* placement_new_move_impl( void* ptr )
+	{
+		return new ( ptr ) deferred_apply_container( std::move( *this ) );
+	}
+	template <bool IsMoveConstractable = move_constructible, typename std::enable_if<!IsMoveConstractable>::type* = nullptr>
+	deferred_apply_base<R>* placement_new_move_impl( void* ptr )
+	{
+		throw( std::bad_alloc( "there is no move constructor" ) );
+	}
+
+	funct_t     functor_;
+	argkeeper_t arguments_keeper_;
 };
 
 }   // namespace deferred_apply_internal
