@@ -191,24 +191,34 @@ struct get_argument_apply_type {
  */
 template <typename... OrigArgs>
 class deferred_applying_arguments {
+	using tuple_args_t = std::tuple<typename deferred_apply_internal::get_argument_store_type<OrigArgs>::type...>;
+
 public:
 	deferred_applying_arguments( void )
 	  : values_()
 	{
 	}
+
+	template <bool IsCopyConstructible = std::is_copy_constructible<tuple_args_t>::value, typename std::enable_if<IsCopyConstructible>::type* = nullptr>
 	deferred_applying_arguments( const deferred_applying_arguments& orig )
 	  : values_( orig.values_ )
 	{
 	}
+
+	template <bool IsMoveConstructible = std::is_move_constructible<tuple_args_t>::value, typename std::enable_if<IsMoveConstructible>::type* = nullptr>
 	deferred_applying_arguments( deferred_applying_arguments&& orig )
 	  : values_( std::move( orig.values_ ) )
 	{
 	}
+
+	template <bool IsCopyAssinable = std::is_copy_assignable<tuple_args_t>::value, typename std::enable_if<IsCopyAssinable>::type* = nullptr>
 	deferred_applying_arguments& operator=( const deferred_applying_arguments& orig )
 	{
 		values_ = orig.values_;
 		return *this;
 	}
+
+	template <bool IsMoveAssinable = std::is_move_assignable<tuple_args_t>::value, typename std::enable_if<IsMoveAssinable>::type* = nullptr>
 	deferred_applying_arguments& operator=( deferred_applying_arguments&& orig )
 	{
 		values_ = std::move( orig.values_ );
@@ -239,6 +249,7 @@ public:
 		printf( "Called constructor of deferred_applying_arguments\n" );
 		printf( "\tthis class: %s\n", deferred_apply_internal::demangle( typeid( *this ).name() ) );
 		printf( "\tvalues_: %s\n", deferred_apply_internal::demangle( typeid( values_ ).name() ) );
+		printf( "\tvalues_ is copy constructible ?: %s\n", std::is_copy_constructible<tuple_args_t>::value ? "true" : "false" );
 	}
 
 	template <typename F>
@@ -264,12 +275,11 @@ private:
 			std::get<Is>( values_ ) )... );
 	}
 
-	using tuple_args_t = std::tuple<typename deferred_apply_internal::get_argument_store_type<OrigArgs>::type...>;
 	tuple_args_t values_;
 };
 
 template <class... Args>
-auto make_deferred_applying_arguments( Args&&... args ) -> decltype( deferred_applying_arguments<Args&&...>( std::forward<Args>( args )... ) )
+auto make_deferred_applying_arguments( Args&&... args ) -> deferred_applying_arguments<Args&&...>
 {
 	return deferred_applying_arguments<Args&&...>( std::forward<Args>( args )... );
 }
@@ -351,6 +361,21 @@ public:
 	}
 
 private:
+	class bad_copy_consturct : public std::bad_alloc {
+	public:
+		const char* what() const noexcept override
+		{
+			return "there is no copy constructor";
+		}
+	};
+	class bad_move_consturct : public std::bad_alloc {
+	public:
+		const char* what() const noexcept override
+		{
+			return "there is no move constructor";
+		}
+	};
+
 	template <bool IsCopyConstractable = copy_constructible, typename std::enable_if<IsCopyConstractable>::type* = nullptr>
 	std::unique_ptr<deferred_apply_base<R>> make_copy_clone_impl( void )
 	{
@@ -363,7 +388,8 @@ private:
 	template <bool IsCopyConstractable = copy_constructible, typename std::enable_if<!IsCopyConstractable>::type* = nullptr>
 	std::unique_ptr<deferred_apply_base<R>> make_copy_clone_impl( void )
 	{
-		throw( std::bad_alloc( "there is no copy constructor" ) );
+		throw( bad_copy_consturct() );
+		return nullptr;
 	}
 
 	template <bool IsCopyConstractable = copy_constructible, typename std::enable_if<IsCopyConstractable>::type* = nullptr>
@@ -374,7 +400,8 @@ private:
 	template <bool IsCopyConstractable = copy_constructible, typename std::enable_if<!IsCopyConstractable>::type* = nullptr>
 	deferred_apply_base<R>* placement_new_copy_impl( void* ptr )
 	{
-		throw( std::bad_alloc() );
+		throw( bad_copy_consturct() );
+		return nullptr;
 	}
 
 	template <bool IsMoveConstractable = move_constructible, typename std::enable_if<IsMoveConstractable>::type* = nullptr>
@@ -385,7 +412,8 @@ private:
 	template <bool IsMoveConstractable = move_constructible, typename std::enable_if<!IsMoveConstractable>::type* = nullptr>
 	deferred_apply_base<R>* placement_new_move_impl( void* ptr )
 	{
-		throw( std::bad_alloc( "there is no move constructor" ) );
+		throw( bad_move_consturct() );
+		return nullptr;
 	}
 
 	funct_t     functor_;
