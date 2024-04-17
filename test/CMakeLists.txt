@@ -20,23 +20,24 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/../.git")
     endif()
 endif()
 
-if(NOT EXISTS "${PROJECT_SOURCE_DIR}/googletest/CMakeLists.txt")
-message(FATAL_ERROR "The submodules were not downloaded! GOOGLETEST was turned off or failed. Please update submodules and try again.")
-# git submodule add https://github.com/google/googletest.git googletest
-# cd googletest
-# git checkout release-1.12.1
-# cd ..
-# git add googletest
-# git commit -m "Add submodule googletest for testing"
+if(EXISTS "${PROJECT_SOURCE_DIR}/googletest/CMakeLists.txt")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+
+    message("[BUILD] ${BUILD_TARGET}")
+    include(${BUILD_TARGET}.cmake)
+
+    add_subdirectory(googletest)
+    add_subdirectory(build_by_cpp11)
+    add_subdirectory(build_by_cpp14)
+    add_subdirectory(build_by_cpp17)
+
+else()
+    message("The submodules were not downloaded! GOOGLETEST was turned off or failed. Skip build unit test executables.")
+    # git submodule add https://github.com/google/googletest.git googletest
+    # cd googletest
+    # git checkout release-1.12.1
+    # cd ..
+    # git add googletest
+    # git commit -m "Add submodule googletest for testing"
 endif()
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-
-message("[BUILD] ${BUILD_TARGET}")
-include(${BUILD_TARGET}.cmake)
-
-add_subdirectory(googletest)
-add_subdirectory(build_by_cpp11)
-add_subdirectory(build_by_cpp14)
-add_subdirectory(build_by_cpp17)
 
